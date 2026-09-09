@@ -1,0 +1,10 @@
+python -m venv venv
+.\venv\Scripts\activate
+pip install fastapi uvicorn sqlalchemy pymysql python-dotenv
+
+chạy backend
+chuyển qua ..\venv\Scripts\activate
+uvicorn main:app --reload
+
+
+down về nhớ cd vô frontend npm i tải thư mục node module về
