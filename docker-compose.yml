@@ -1,0 +1,14 @@
+services:
+  tuition_mysql:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456789
+      MYSQL_DATABASE: DB_Tuition
+    ports:
+      - "3308:3306"
+    volumes:
+      - tuition_mysql_data:/var/lib/mysql
+
+volumes:
+  tuition_mysql_data:
