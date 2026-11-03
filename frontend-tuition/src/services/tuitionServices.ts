@@ -1,12 +1,13 @@
-import { httpClient } from "../util/Config.ts"
+import { httpClient } from "../util/Config.ts";
 
 export const tuitionServices = {
-    //hàm tra cứu học phí
-    getTuitionDataByMSSV: (mssv: string) => {
-        return httpClient.get(`/tuition/${mssv}`)
-    },
+  // Tra cứu học phí theo MSSV
+  getTuitionDataByMSSV: (mssv: string) => {
+    return httpClient.get(`/tuition/${mssv}`);
+  },
 
-    payTuition: (payload: {mssv:string;version:number}) => {
-        return httpClient.post(`/tuition/pay`,payload)
-    }
-}
+  // Tạm giữ cho reducer cũ, sẽ thay bằng luồng OTP ở phần 2
+  payTuition: (payload: { mssv: string; version: number }) => {
+    return httpClient.post(`/tuition/pay`, payload);
+  },
+};
