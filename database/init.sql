@@ -1,5 +1,5 @@
 -- =====================================================
--- ACCOUNT_DB : Account service
+-- ACCOUNT_DB
 -- =====================================================
 CREATE DATABASE account_db;
 \connect account_db
@@ -16,16 +16,17 @@ CREATE TABLE users (
     balance       BIGINT       NOT NULL DEFAULT 0 CHECK (balance >= 0)
 );
 
--- Mật khẩu mẫu của cả 3 user là: 123456
--- Nhớ đổi email thành email thật của bạn để nhận OTP khi test
+-- Mật khẩu mẫu của tất cả user là: 123456
 INSERT INTO users (username, password_hash, full_name, phone, email, balance) VALUES
 ('tan',  crypt('123456', gen_salt('bf', 10)), 'Nguyen Huu Tan',  '0901111111', 'tan@example.com',  20000000),
 ('thai', crypt('123456', gen_salt('bf', 10)), 'Tran Minh Thai',  '0902222222', 'thai@example.com',  5000000),
-('viet', crypt('123456', gen_salt('bf', 10)), 'Le Quoc Viet',    '0903333333', 'viet@example.com', 30000000);
+('viet', crypt('123456', gen_salt('bf', 10)), 'Le Quoc Viet',    '0903333333', 'viet@example.com', 30000000),
+('nam',  crypt('123456', gen_salt('bf', 10)), 'Nguyen Van Nam',  '0904444444', 'nam@example.com',  25000000),
+('lan',  crypt('123456', gen_salt('bf', 10)), 'Pham Thi Lan',    '0905555555', 'lan@example.com',  18000000);
 
 
 -- =====================================================
--- TUITION_DB : Tuition service
+-- TUITION_DB
 -- =====================================================
 CREATE DATABASE tuition_db;
 \connect tuition_db
@@ -48,20 +49,18 @@ CREATE TABLE tuition_fees (
 INSERT INTO students (mssv, full_name) VALUES
 ('524H0028', 'Nguyen Huu Tan'),
 ('524H0029', 'Tran Minh Thai'),
-('524H0030', 'Le Quoc Viet'),
+('524H0137', 'Le Quoc Viet'),
 ('524H0031', 'Pham Gia Bao');
 
 INSERT INTO tuition_fees (mssv, amount, status, version) VALUES
 ('524H0028', 15000000, 'PENDING', 1),
 ('524H0029', 12500000, 'PENDING', 1),
-('524H0030', 12500000, 'PAID',    2),
+('524H0137', 12500000, 'PAID',    2),
 ('524H0031', 18000000, 'PENDING', 1);
 
 
 -- =====================================================
--- PAYMENT_DB : Payment service
--- (user_id, tuition_id là tham chiếu logic, không có FK
---  vì nằm ở database của service khác)
+-- PAYMENT_DB
 -- =====================================================
 CREATE DATABASE payment_db;
 \connect payment_db
@@ -91,5 +90,17 @@ CREATE TABLE otp_codes (
     created_at     TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Không cho 2 OTP chưa dùng có cùng mã (đáp ứng yêu cầu "không trùng OTP đang có hiệu lực")
 CREATE UNIQUE INDEX uq_otp_active_code ON otp_codes(code_hash) WHERE used = FALSE;
+
+CREATE TABLE password_reset_otps (
+    id          SERIAL PRIMARY KEY,
+    user_id     INT         NOT NULL REFERENCES users(id),
+    code_hash   VARCHAR(64) NOT NULL,
+    expires_at  TIMESTAMP   NOT NULL,
+    attempts    INT         NOT NULL DEFAULT 0,
+    used        BOOLEAN     NOT NULL DEFAULT FALSE,
+    verified_at TIMESTAMP,
+    consumed_at TIMESTAMP,
+    created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_pwreset_user ON password_reset_otps(user_id, created_at DESC);

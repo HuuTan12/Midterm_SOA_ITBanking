@@ -13,3 +13,5 @@ ai muốn tải về thì
 git clone ...
 cd IT_Banking
 docker compose up -d
+
+http://localhost:5173

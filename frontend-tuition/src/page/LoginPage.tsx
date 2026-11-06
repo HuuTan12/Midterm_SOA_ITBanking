@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authServices } from "../services/authServices.ts";
 import { TOKEN_KEY } from "../util/Config.ts";
 
@@ -9,6 +9,8 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const loc = useLocation();
+  const notice = (loc.state as { notice?: string } | null)?.notice;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +34,7 @@ const LoginPage: React.FC = () => {
           <h3 className="fw-bold text-primary text-center mb-4">iBanking</h3>
           <form className="card shadow-sm border-0" onSubmit={handleSubmit}>
             <div className="card-body p-4">
+              {notice && <div className="alert alert-success py-2">{notice}</div>}
               <div className="mb-3">
                 <label className="form-label fw-semibold">Tên đăng nhập</label>
                 <input className="form-control" value={username}
@@ -47,6 +50,11 @@ const LoginPage: React.FC = () => {
                 disabled={loading || !username.trim() || !password}>
                 {loading ? "Đang đăng nhập..." : "Đăng nhập"}
               </button>
+              <div className="text-center mt-3">
+                <Link to="/forgot-password" className="small">
+                  Quên mật khẩu?
+                </Link>
+              </div>
             </div>
           </form>
         </div>

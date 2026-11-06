@@ -1,4 +1,4 @@
-import hashlib, hmac, os, secrets
+import hashlib, hmac, logging, os, secrets
 from pathlib import Path
 
 import httpx
@@ -176,15 +176,33 @@ def verify_otp(tx_id: int, body: OtpReq, authorization: str | None = Header(None
             "UPDATE transactions SET status='SUCCESS', updated_at=now() WHERE id=:id"),
             {"id": tx_id})
 
-    # Ra khỏi khối with: giao dịch đã commit, gửi email xác nhận
+    # Ra khỏi khối with: giao dịch đã commit, nhờ notification-service gửi email xác nhận.
+    # Lỗi gửi mail không được làm hỏng giao dịch đã thành công, chỉ ghi log.
     try:
         me = httpx.get(f"{ACCOUNT_URL}/users/me",
                        headers={"Authorization": authorization}, timeout=10).json()
-        notify(me["email"], "Xác nhận thanh toán học phí",
-               f"Bạn đã thanh toán {tx['amount']:,} VND học phí cho MSSV {tx['mssv']}. "
-               f"Mã giao dịch: {tx_id}.")
+
+        # Lấy tên sinh viên nhận học phí; lỗi thì bỏ qua, email vẫn được gửi
+        student_name = ""
+        try:
+            rs = httpx.get(f"{TUITION_URL}/api/tuition/{tx['mssv']}", timeout=10)
+            if rs.status_code == 200:
+                student_name = rs.json().get("full_name") or ""
+        except httpx.HTTPError:
+            pass
+
+        r = httpx.post(f"{NOTIFY_URL}/internal/notify/payment-success",
+                       json={"to": me["email"], "payer_name": me["full_name"],
+                             "student_name": student_name,
+                             "mssv": tx["mssv"], "amount": tx["amount"],
+                             "transaction_id": tx_id},
+                       headers=HDR, timeout=15)
+        if r.status_code != 200:
+            logging.getLogger("payment-service").warning(
+                "Gửi email xác nhận giao dịch %s lỗi: HTTP %s", tx_id, r.status_code)
     except Exception:
-        pass
+        logging.getLogger("payment-service").exception(
+            "Gửi email xác nhận giao dịch %s lỗi", tx_id)
     return {"status": "SUCCESS", "transaction_id": tx_id}
 
 @app.post("/payments/{tx_id}/resend-otp")
