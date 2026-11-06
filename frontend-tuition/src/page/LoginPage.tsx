@@ -3,12 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authServices } from "../services/authServices.ts";
 import { TOKEN_KEY } from "../util/Config.ts";
 
-const DEMO_USERS = [
-  { name: "Nguyễn Hữu Tân", note: "Số dư: 20tr" },
-  { name: "Trần Minh Thái", note: "Số dư: 5tr" },
-  { name: "Lê Quốc Việt", note: "Số dư: 30tr" },
-];
-
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -33,26 +27,21 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleFillDemo = (name: string) => {
-    setUsername(name);
-    setPassword("123456");
-  };
-
   return (
     <div className="container py-5">
       <div className="row justify-content-center align-items-center min-vh-75">
         <div className="col-12 col-sm-9 col-md-7 col-lg-5 col-xl-4">
           {/* Logo & Tên hệ thống */}
           <div className="text-center mb-4">
-            <div className="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary text-white shadow-sm mb-2" style={{ width: 50, height: 50 }}>
+            <div className="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary text-white shadow-sm mb-2" style={{ width: 48, height: 48 }}>
               <i className="bi bi-bank fs-3"></i>
             </div>
-            <h3 className="fw-bold text-dark mb-0">iBanking Portal</h3>
-            <p className="text-muted small">Cổng dịch vụ thanh toán học phí trực tuyến</p>
+            <h3 className="fw-bold text-dark mb-1">iBanking</h3>
+            <p className="text-muted small">Cổng thanh toán học phí trực tuyến</p>
           </div>
 
           {/* Khung đăng nhập */}
-          <div className="banking-card shadow-sm border p-4">
+          <div className="banking-card shadow-sm p-4">
             {notice && (
               <div className="alert alert-success py-2 px-3 small rounded-3 mb-3 d-flex align-items-center gap-2">
                 <i className="bi bi-check-circle-fill"></i>
@@ -62,7 +51,7 @@ const LoginPage: React.FC = () => {
 
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
-                <label className="form-label">Tài khoản đăng nhập</label>
+                <label className="form-label small fw-semibold text-secondary">Tên đăng nhập</label>
                 <div className="input-group">
                   <span className="input-group-text bg-light border-end-0 text-muted">
                     <i className="bi bi-person"></i>
@@ -75,14 +64,11 @@ const LoginPage: React.FC = () => {
                     placeholder="Username, SĐT hoặc Email"
                   />
                 </div>
-                <div className="form-text small text-muted" style={{ fontSize: "0.76rem" }}>
-                  Ví dụ: <em>tan</em>, SĐT <em>0901111111</em> hoặc <em>tan@example.com</em>
-                </div>
               </div>
 
-              <div className="mb-3">
+              <div className="mb-4">
                 <div className="d-flex justify-content-between align-items-center mb-1">
-                  <label className="form-label mb-0">Mật khẩu</label>
+                  <label className="form-label small fw-semibold text-secondary mb-0">Mật khẩu</label>
                   <Link to="/forgot-password" className="small text-decoration-none text-primary">
                     Quên mật khẩu?
                   </Link>
@@ -96,7 +82,7 @@ const LoginPage: React.FC = () => {
                     className="form-control banking-input border-start-0"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Nhập mật khẩu (Mặc định: 123456)"
+                    placeholder="Mật khẩu"
                   />
                 </div>
               </div>
@@ -126,26 +112,6 @@ const LoginPage: React.FC = () => {
                 )}
               </button>
             </form>
-
-            {/* Quick Demo Helpers */}
-            <div className="border-top pt-3 mt-4">
-              <div className="small text-muted mb-2 d-flex align-items-center gap-1">
-                <i className="bi bi-lightning-charge text-warning"></i>
-                Tài khoản kiểm thử nhanh (Demo):
-              </div>
-              <div className="d-flex flex-wrap gap-2">
-                {DEMO_USERS.map((u) => (
-                  <button
-                    key={u.name}
-                    type="button"
-                    className="chip-btn"
-                    onClick={() => handleFillDemo(u.name)}
-                  >
-                    {u.name} <span className="text-muted small">({u.note})</span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className="text-center text-muted small mt-4">

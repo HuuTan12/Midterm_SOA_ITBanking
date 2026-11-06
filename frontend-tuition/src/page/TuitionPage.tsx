@@ -45,7 +45,6 @@ const TuitionPage: React.FC = () => {
   const [otpOpen, setOtpOpen] = useState(false);
   const [txId, setTxId] = useState<number | null>(null);
   const [otp, setOtp] = useState("");
-  const [debugOtp, setDebugOtp] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
@@ -97,7 +96,6 @@ const TuitionPage: React.FC = () => {
       setTxId(res.data.transaction_id);
       setOtp("");
       setOtpError(null);
-      setDebugOtp(res.data.debug_otp ?? null);
       setSecondsLeft(res.data.expires_in_seconds ?? OTP_SECONDS);
       setOtpOpen(true);
     } catch (err: any) {
@@ -146,7 +144,6 @@ const TuitionPage: React.FC = () => {
     try {
       const res = await paymentServices.resendOtp(txId);
       setOtp("");
-      setDebugOtp(res.data.debug_otp ?? null);
       setSecondsLeft(res.data.expires_in_seconds ?? OTP_SECONDS);
     } catch (err: any) {
       setOtpError(errMsg(err, "Không gửi lại được mã OTP"));
@@ -236,38 +233,31 @@ const TuitionPage: React.FC = () => {
               </div>
             )}
 
-            {/* a. Nhóm thông tin người nộp tiền (Chỉ đọc) */}
+            {/* a. Nhóm thông tin người nộp tiền */}
             <div className="banking-card">
               <div className="banking-card-header">
-                <h6 className="card-title-text">
-                  <i className="bi bi-person-vcard text-primary"></i>
-                  1. Thông tin người nộp tiền
+                <h6 className="card-title-text mb-0">
+                  <i className="bi bi-person-circle text-primary me-2"></i>
+                  Thông tin người nộp tiền
                 </h6>
-                <span className="badge bg-light text-muted border fw-normal" style={{ fontSize: "0.75rem" }}>
-                  Chỉ đọc
-                </span>
               </div>
               <div className="banking-card-body">
                 <div className="row g-3">
-                  <div className="col-12 col-md-6">
-                    <label className="form-label">Họ và tên chủ tài khoản</label>
-                    <input className="form-control banking-input" value={me?.full_name ?? ""} readOnly />
+                  <div className="col-6 col-md-3">
+                    <div className="text-muted small">Họ và tên</div>
+                    <div className="fw-semibold text-dark">{me?.full_name ?? "---"}</div>
                   </div>
-                  <div className="col-12 col-md-6">
-                    <label className="form-label">Số điện thoại</label>
-                    <input className="form-control banking-input" value={me?.phone ?? ""} readOnly />
+                  <div className="col-6 col-md-3">
+                    <div className="text-muted small">Số điện thoại</div>
+                    <div className="fw-semibold text-dark">{me?.phone ?? "---"}</div>
                   </div>
-                  <div className="col-12 col-md-6">
-                    <label className="form-label">Email nhận OTP</label>
-                    <input className="form-control banking-input" value={me?.email ?? ""} readOnly />
+                  <div className="col-12 col-md-3">
+                    <div className="text-muted small">Email nhận OTP</div>
+                    <div className="fw-semibold text-dark text-truncate">{me?.email ?? "---"}</div>
                   </div>
-                  <div className="col-12 col-md-6">
-                    <label className="form-label">Số dư khả dụng</label>
-                    <input
-                      className="form-control banking-input fw-bold text-primary"
-                      value={me ? money(me.balance) : ""}
-                      readOnly
-                    />
+                  <div className="col-12 col-md-3">
+                    <div className="text-muted small">Số dư khả dụng</div>
+                    <div className="fw-bold text-primary fs-6">{me ? money(me.balance) : "---"}</div>
                   </div>
                 </div>
               </div>
@@ -276,23 +266,23 @@ const TuitionPage: React.FC = () => {
             {/* b. Nhóm tra cứu học phí */}
             <div className="banking-card">
               <div className="banking-card-header">
-                <h6 className="card-title-text">
-                  <i className="bi bi-search text-primary"></i>
-                  2. Tra cứu học phí sinh viên
+                <h6 className="card-title-text mb-0">
+                  <i className="bi bi-search text-primary me-2"></i>
+                  Tra cứu học phí sinh viên
                 </h6>
               </div>
               <div className="banking-card-body">
-                <label htmlFor="mssvInput" className="form-label">
+                <label htmlFor="mssvInput" className="form-label small fw-semibold text-secondary">
                   Mã số sinh viên (MSSV)
                 </label>
-                <div className="input-group mb-2">
+                <div className="input-group">
                   <span className="input-group-text bg-light border-end-0 text-muted">
                     <i className="bi bi-mortarboard"></i>
                   </span>
                   <input
                     id="mssvInput"
                     className="form-control banking-input border-start-0"
-                    placeholder="Nhập MSSV (Ví dụ: 524H0028, 524H0029, 524H0031...)"
+                    placeholder="Nhập mã số sinh viên..."
                     value={mssvInput}
                     onChange={(e) => setMssvInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -316,24 +306,6 @@ const TuitionPage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Gợi ý nhanh MSSV */}
-                <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
-                  <span className="small text-muted">Gợi ý kiểm thử:</span>
-                  {["524H0028", "524H0029", "524H0030", "524H0031", "524H0035"].map((code) => (
-                    <button
-                      key={code}
-                      type="button"
-                      className="chip-btn"
-                      onClick={() => {
-                        setMssvInput(code);
-                        dispatch(fetchTuition(code));
-                      }}
-                    >
-                      {code}
-                    </button>
-                  ))}
-                </div>
-
                 {error && (
                   <div className="alert alert-danger py-2 px-3 small rounded-3 mt-3 mb-0 d-flex align-items-center gap-2">
                     <i className="bi bi-exclamation-circle-fill"></i>
@@ -343,9 +315,9 @@ const TuitionPage: React.FC = () => {
 
                 {/* Khung kết quả tra cứu */}
                 {data && (
-                  <div className="tuition-result-box">
+                  <div className="tuition-result-box mt-3">
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                      <span className="fw-semibold text-secondary small text-uppercase">Thông tin sinh viên</span>
+                      <span className="fw-semibold text-secondary small">THÔNG TIN SINH VIÊN</span>
                       {data.tuition_id == null ? (
                         <span className="badge bg-secondary">Không có công nợ</span>
                       ) : data.status === "PAID" ? (
@@ -380,9 +352,6 @@ const TuitionPage: React.FC = () => {
                           <div className="text-muted small">Số tiền cần đóng</div>
                           <div className="fs-5 fw-bold text-danger">{money(data.amount)}</div>
                         </div>
-                        <div className="text-end text-muted small">
-                          Học kỳ 1 • Năm học 2024-2025
-                        </div>
                       </div>
                     )}
                   </div>
@@ -394,22 +363,22 @@ const TuitionPage: React.FC = () => {
             {data && data.tuition_id != null && data.status === "PENDING" && (
               <div className="banking-card border-primary">
                 <div className="banking-card-header bg-light">
-                  <h6 className="card-title-text text-primary">
-                    <i className="bi bi-shield-check text-primary"></i>
-                    3. Xác nhận thanh toán học phí
+                  <h6 className="card-title-text text-primary mb-0">
+                    <i className="bi bi-shield-check text-primary me-2"></i>
+                    Xác nhận thanh toán học phí
                   </h6>
                 </div>
                 <div className="banking-card-body">
                   <div className="p-3 bg-light rounded-3 mb-3">
-                    <div className="d-flex justify-content-between mb-2">
+                    <div className="d-flex justify-content-between mb-2 small">
                       <span className="text-muted">Số dư khả dụng hiện tại:</span>
                       <span className="fw-semibold">{me ? money(me.balance) : "---"}</span>
                     </div>
-                    <div className="d-flex justify-content-between mb-2">
+                    <div className="d-flex justify-content-between mb-2 small">
                       <span className="text-muted">Số tiền thanh toán học phí:</span>
                       <span className="fw-bold text-danger">-{money(data.amount)}</span>
                     </div>
-                    <div className="border-top pt-2 d-flex justify-content-between">
+                    <div className="border-top pt-2 d-flex justify-content-between small">
                       <span className="fw-semibold">Số dư còn lại sau thanh toán:</span>
                       <span className={`fw-bold ${me && me.balance >= data.amount ? "text-success" : "text-danger"}`}>
                         {me ? money(me.balance - data.amount) : "---"}
@@ -445,7 +414,7 @@ const TuitionPage: React.FC = () => {
                   )}
 
                   <button
-                    className="btn btn-banking-success w-100 d-flex align-items-center justify-content-center gap-2 shadow-sm"
+                    className="btn btn-banking-success w-100 d-flex align-items-center justify-content-center gap-2 shadow-sm py-2"
                     onClick={handleConfirm}
                     disabled={!canConfirm}
                   >
@@ -496,23 +465,9 @@ const TuitionPage: React.FC = () => {
                   </p>
                   <div className="fw-semibold text-primary mb-3">{me?.email}</div>
 
-                  {/* Nút hỗ trợ test nhanh chỉ hiển thị nếu có debugOtp từ backend */}
-                  {debugOtp && (
-                    <div className="alert alert-light border py-1 px-3 small d-inline-flex align-items-center gap-2 mb-3 rounded-pill text-muted">
-                      <span>Mã kiểm thử: <strong>{debugOtp}</strong></span>
-                      <button
-                        type="button"
-                        className="btn btn-link btn-sm p-0 text-decoration-none fw-semibold"
-                        onClick={() => setOtp(debugOtp)}
-                      >
-                        [Điền ngay]
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="my-2">
+                  <div className="my-3">
                     <input
-                      className="form-control form-control-lg otp-box-clean"
+                      className="form-control form-control-lg otp-box-clean text-center"
                       inputMode="numeric"
                       maxLength={6}
                       placeholder="······"
