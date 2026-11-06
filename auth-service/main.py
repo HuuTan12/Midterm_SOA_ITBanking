@@ -66,24 +66,16 @@ def require_internal(key: str | None):
 
 @app.post("/auth/login")
 def login(body: LoginReq):
-    # Cho phép đăng nhập bằng Họ và tên có dấu/không dấu (Nguyễn Hữu Tân, Nguyen Huu Tan),
-    # tên viết liền (nguyenhuutan, tan), SĐT hoặc Email
+    # Đăng nhập bằng username; cho phép thêm số điện thoại hoặc email.
+    # crypt() của pgcrypto kiểm tra bcrypt ngay trong DB, khớp hash trong init.sql
     identifier = body.username.strip().lower()
     with engine.connect() as c:
-        user = c.execute(text("""
-            SELECT id FROM users 
-            WHERE (
-                lower(username) = :u 
-                OR lower(full_name) = :u 
-                OR phone = :u 
-                OR lower(email) = :u
-                OR (:u IN ('tan', 'nguyenhuutan', 'nguyen huu tan') AND id = 1)
-                OR (:u IN ('thai', 'tranminhthai', 'tran minh thai') AND id = 2)
-                OR (:u IN ('viet', 'lequocviet', 'le quoc viet') AND id = 3)
-                OR (:u IN ('nam', 'nguyenvannam', 'nguyen van nam') AND id = 4)
-                OR (:u IN ('lan', 'phamthilan', 'pham thi lan') AND id = 5)
-            ) AND password_hash = crypt(:p, password_hash)
-        """), {"u": identifier, "p": body.password}).mappings().first()
+        user = c.execute(text(
+            "SELECT id FROM users "
+            "WHERE (lower(username) = :u OR phone = :u OR lower(email) = :u) "
+            "AND password_hash = crypt(:p, password_hash) "
+            "ORDER BY id LIMIT 1"
+        ), {"u": identifier, "p": body.password}).mappings().first()
     if not user:
         raise HTTPException(401, "Sai thông tin đăng nhập hoặc mật khẩu")
     token = jwt.encode(

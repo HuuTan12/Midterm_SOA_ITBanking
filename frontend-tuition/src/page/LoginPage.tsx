@@ -72,11 +72,11 @@ const LoginPage: React.FC = () => {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     autoFocus
-                    placeholder="Họ tên, SĐT, Email hoặc Username"
+                    placeholder="Username, SĐT hoặc Email"
                   />
                 </div>
                 <div className="form-text small text-muted" style={{ fontSize: "0.76rem" }}>
-                  Hỗ trợ gõ Họ tên có dấu (<em>Nguyễn Hữu Tân</em>) hoặc SĐT (<em>0901111111</em>)
+                  Ví dụ: <em>tan</em>, SĐT <em>0901111111</em> hoặc <em>tan@example.com</em>
                 </div>
               </div>
 

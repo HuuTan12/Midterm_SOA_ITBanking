@@ -73,17 +73,8 @@ Mật khẩu của cả 6 tài khoản: `123456`
 | nam | Nguyen Van Nam | 25.000.000 | 524H0032 |
 | lan | Pham Thi Lan | 18.000.000 | 524H0033 |
 | mai | Hoang Thi Mai | 8.000.000 | 524H0034 |
-Mật khẩu của tất cả tài khoản: `123456`
 
-Hệ thống hỗ trợ đăng nhập bằng chính **Họ và tên đầy đủ** (có dấu hoặc không dấu), hoặc **Số điện thoại**, **Email**:
-
-| Tên đăng nhập (Họ tên) | Tên viết tắt | Số điện thoại | Số dư ban đầu | MSSV tương ứng |
-|---|---|---|---|---|
-| **Nguyễn Hữu Tân** | `tan` | `0901111111` | 20.000.000 | 524H0028 |
-| **Trần Minh Thái** | `thai` | `0902222222` | 5.000.000 | 524H0029 |
-| **Lê Quốc Việt** | `viet` | `0903333333` | 30.000.000 | 524H0137 |
-| **Nguyễn Văn Nam** | `nam` | `0904444444` | 25.000.000 | - |
-| **Phạm Thị Lan** | `lan` | `0905555555` | 18.000.000 | - |
+Ngoài username, có thể đăng nhập bằng số điện thoại (`0901111111` ... `0906666666`) hoặc email (`tan@example.com`, ...).
 
 Học phí (có thể đóng cho bất kỳ MSSV nào):
 
@@ -97,10 +88,6 @@ Học phí (có thể đóng cho bất kỳ MSSV nào):
 | 524H0033 | Pham Thi Lan | 16.500.000 | Chưa đóng |
 | 524H0034 | Hoang Thi Mai | 7.500.000 | Chưa đóng |
 | 524H0035 | Do Quang Huy (không có tài khoản) | chưa có khoản học phí | - |
-| 524H0028 | Nguyễn Hữu Tân | 15.000.000 | Chưa đóng |
-| 524H0029 | Trần Minh Thái | 12.500.000 | Chưa đóng |
-| 524H0031 | Phạm Gia Bảo | 18.000.000 | Chưa đóng |
-| 524H0137 | Lê Quốc Việt | 12.500.000 | Đã đóng |
 
 ## Nhận mã OTP và email
 
@@ -143,6 +130,7 @@ Các bước kiểm thử và kết quả mong đợi: [docs/testflow.md](docs/t
 ## Hạn chế đã biết
 
 - Nếu Payment Service dừng đột ngột sau khi Account Service đã trừ tiền nhưng trước khi chốt học phí, giao dịch có thể bị kẹt và người dùng có thể bị trừ tiền lần hai khi thử lại. Hướng khắc phục: ghi trạng thái `DEBITED` bằng một commit riêng trước khi chốt học phí, kèm job đối soát định kỳ.
+- Nếu lời gọi trừ tiền sang Account Service bị timeout nhưng thực tế đã trừ, giao dịch bị ghi `FAILED` mà chưa hoàn tiền. Hướng khắc phục: gửi kèm mã giao dịch làm idempotency key cho debit/credit để có thể hỏi lại hoặc thử lại an toàn.
 - Biến `DEBUG_RETURN_OTP=1` chỉ dùng khi chạy script concurrency (API sẽ trả OTP trong response). Bình thường để `0`.
 
 ## Cấu trúc thư mục

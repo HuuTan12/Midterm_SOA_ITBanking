@@ -292,7 +292,7 @@ const TuitionPage: React.FC = () => {
                   <input
                     id="mssvInput"
                     className="form-control banking-input border-start-0"
-                    placeholder="Nhập MSSV (Ví dụ: 524H0028, 524H0029, 524H0137...)"
+                    placeholder="Nhập MSSV (Ví dụ: 524H0028, 524H0029, 524H0031...)"
                     value={mssvInput}
                     onChange={(e) => setMssvInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -319,7 +319,7 @@ const TuitionPage: React.FC = () => {
                 {/* Gợi ý nhanh MSSV */}
                 <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
                   <span className="small text-muted">Gợi ý kiểm thử:</span>
-                  {["524H0028", "524H0029", "524H0137", "524H0031"].map((code) => (
+                  {["524H0028", "524H0029", "524H0030", "524H0031", "524H0035"].map((code) => (
                     <button
                       key={code}
                       type="button"
