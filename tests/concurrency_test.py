@@ -77,7 +77,20 @@ def scenario_b():
     codes = sorted(c for c, _ in res.values())
     ok = codes == [200, 402] and a >= 0 and (b - a) in (15_000_000, 12_500_000)
     print("  KẾT QUẢ:", "PASS (chỉ 1 giao dịch thành công, số dư không âm)" if ok else "FAIL")
+    
+
+def scenario_c():
+    print("=== (c) 1 giao dịch, bấm xác nhận OTP 2 lần đồng thời ===")
+    h = login("tan")
+    b = balance(h)
+    tx, otp = create(h, "524H0028")
+    res = verify_parallel([("lần 1", h, tx, otp), ("lần 2", h, tx, otp)])
+    show(res)
+    a = balance(h)
+    codes = sorted(c for c, _ in res.values())
+    ok = codes == [200, 409] and b - a == 15_000_000
+    print("  KẾT QUẢ:", "PASS (chỉ trừ tiền 1 lần)" if ok else "FAIL")
 
 
 if __name__ == "__main__":
-    {"a": scenario_a, "b": scenario_b}[sys.argv[1]]()
+    {"a": scenario_a, "b": scenario_b, "c": scenario_c}[sys.argv[1]]()

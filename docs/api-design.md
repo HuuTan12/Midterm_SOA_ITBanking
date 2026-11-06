@@ -10,6 +10,9 @@ Quy ước: lỗi trả về dạng `{"detail": "<thông báo>"}`. Endpoint `/in
 | GET | /users/me | Bearer token | 200 `{"id","username","full_name","phone","email","balance"}` | 401 token thiếu/sai/hết hạn |
 | POST | /internal/accounts/{user_id}/debit | `X-Internal-Key` + `{"amount"}` | 200 `{"balance"}` (số dư mới) | 402 số dư không đủ, 403 sai key, 422 |
 | POST | /internal/accounts/{user_id}/credit | `X-Internal-Key` + `{"amount"}` | 200 `{"balance"}` | 403, 404 không có user, 422 |
+| POST | /auth/forgot-password | `{"email"}` | 200 `{"message","expires_in_seconds"}` (luôn 200 dù email có tồn tại hay không) | 422 |
+| POST | /auth/verify-reset-otp | `{"email","otp"}` | 200 `{"reset_token","expires_in_seconds"}` | 400 OTP sai/không hợp lệ, 410 hết hạn, 422, 429 sai quá 5 lần |
+| POST | /auth/reset-password | `{"reset_token","new_password"}` | 200 `{"message"}` | 400 phiên không hợp lệ/đã dùng, 422 mật khẩu dưới 6 ký tự |
 
 ## 2. Tuition Service (cổng 8002, DB `tuition_db`)
 
@@ -34,3 +37,4 @@ Trạng thái giao dịch: `PENDING_OTP`, `SUCCESS`, `FAILED`, `EXPIRED`.
 | Method | URI | Request | Response thành công | Mã lỗi |
 |---|---|---|---|---|
 | POST | /internal/notify/email | `X-Internal-Key` + `{"to","subject","body"}` | 200 `{"sent":true,"mode":"smtp"|"console"}` | 403, 422, 502 SMTP lỗi |
+| POST | /internal/notify/payment-success | `X-Internal-Key` + `{"to","payer_name","student_name"(tùy chọn),"mssv","amount","transaction_id"}` | 200 `{"sent":true,"mode":"smtp"|"console"}` | 403, 422, 502 SMTP lỗi |

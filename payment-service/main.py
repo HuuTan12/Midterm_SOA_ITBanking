@@ -20,6 +20,14 @@ ACCOUNT_URL = os.environ["ACCOUNT_URL"]
 TUITION_URL = os.environ["TUITION_URL"]
 NOTIFY_URL = os.environ["NOTIFY_URL"]
 HDR = {"X-Internal-Key": os.environ["INTERNAL_API_KEY"]}
+OTP_KEY = (JWT_SECRET + ":payment-otp").encode()
+OTP_MAX_ATTEMPTS = 5
+
+
+def otp_hash(otp: str) -> str:
+    # HMAC có khóa bí mật thay cho SHA-256 thuần. Không đưa tx_id vào: unique index
+    # uq_otp_active_code vẫn đảm bảo OTP không trùng giữa các giao dịch đang hiệu lực.
+    return hmac.new(OTP_KEY, otp.encode(), hashlib.sha256).hexdigest()
 
 app = FastAPI(title="Payment Service")
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
@@ -85,7 +93,7 @@ def create_payment(body: CreatePaymentReq, authorization: str | None = Header(No
 
     for _ in range(3):   # thử lại nếu trúng unique index uq_otp_active_code
         otp = f"{secrets.randbelow(10**6):06d}"
-        code_hash = hashlib.sha256(otp.encode()).hexdigest()
+        code_hash = otp_hash(otp)
         try:
             with engine.begin() as conn:
                 tx_id = conn.execute(text(
@@ -130,16 +138,21 @@ def verify_otp(tx_id: int, body: OtpReq, authorization: str | None = Header(None
             return JSONResponse(status_code=409, content={"detail": "Giao dịch đã được xử lý"})
 
         otp = conn.execute(text(
-            "SELECT id, code_hash, used, (expires_at > CURRENT_TIMESTAMP) AS valid "
+            "SELECT id, code_hash, used, attempts, (expires_at > CURRENT_TIMESTAMP) AS valid "
             "FROM otp_codes WHERE transaction_id=:id ORDER BY id DESC LIMIT 1"),
             {"id": tx_id}).mappings().first()
         if not otp or otp["used"]:
             return JSONResponse(status_code=400, content={"detail": "OTP không hợp lệ"})
         if not otp["valid"]:
             return finish(conn, tx_id, "EXPIRED", "OTP đã hết hạn", 410)
-        digest = hashlib.sha256(body.otp.encode()).hexdigest()
-        if not hmac.compare_digest(digest, otp["code_hash"]):
-            return JSONResponse(status_code=400, content={"detail": "OTP sai"})
+        if not hmac.compare_digest(otp_hash(body.otp), otp["code_hash"]):
+            attempts = otp["attempts"] + 1
+            conn.execute(text("UPDATE otp_codes SET attempts=:a WHERE id=:id"),
+                         {"a": attempts, "id": otp["id"]})
+            if attempts >= OTP_MAX_ATTEMPTS:
+                return finish(conn, tx_id, "FAILED", "Nhập sai OTP quá 5 lần", 429)
+            return JSONResponse(status_code=400, content={
+                "detail": f"OTP sai, còn {OTP_MAX_ATTEMPTS - attempts} lần thử"})
 
         conn.execute(text("UPDATE otp_codes SET used = TRUE WHERE id=:id"), {"id": otp["id"]})
 
@@ -163,13 +176,16 @@ def verify_otp(tx_id: int, body: OtpReq, authorization: str | None = Header(None
         except httpx.HTTPError:
             pass
         if not ok:
-            # Bù trừ: hoàn tiền
+            # Bù trừ: hoàn tiền, chỉ coi là xong khi Account Service trả 200
+            refunded = False
             try:
-                httpx.post(f"{ACCOUNT_URL}/internal/accounts/{uid}/credit",
-                           json={"amount": tx["amount"]}, headers=HDR, timeout=10)
-                reason = "Học phí đã được thanh toán bởi giao dịch khác, đã hoàn tiền"
+                rc = httpx.post(f"{ACCOUNT_URL}/internal/accounts/{uid}/credit",
+                                json={"amount": tx["amount"]}, headers=HDR, timeout=10)
+                refunded = rc.status_code == 200
             except httpx.HTTPError:
-                reason = "REFUND_PENDING: cần hoàn tiền thủ công"
+                pass
+            reason = ("Học phí đã được thanh toán bởi giao dịch khác, đã hoàn tiền"
+                      if refunded else "REFUND_PENDING: cần hoàn tiền thủ công")
             return finish(conn, tx_id, "FAILED", reason, 409)
 
         conn.execute(text(
@@ -216,7 +232,7 @@ def resend_otp(tx_id: int, authorization: str | None = Header(None)):
 
     for _ in range(3):
         otp = f"{secrets.randbelow(10**6):06d}"
-        code_hash = hashlib.sha256(otp.encode()).hexdigest()
+        code_hash = otp_hash(otp)
         try:
             with engine.begin() as conn:
                 tx = conn.execute(text(
