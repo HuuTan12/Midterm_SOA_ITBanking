@@ -1,160 +1,179 @@
-# Sơ đồ Kiến trúc & Thiết kế Hệ thống iBanking
+# Sơ đồ thiết kế hệ thống iBanking
 
-Tài liệu này tổng hợp toàn bộ các sơ đồ đặc tả kỹ thuật theo đúng thang tiêu chí đánh giá môn học (10.0 / 10.0 điểm), bao gồm:
-1. **Sơ đồ Ca sử dụng (Use Case Diagram)** - *Tiêu chí 1 (0.5đ)*
-2. **Sơ đồ Thực thể Mối quan hệ (Entity Relationship Diagram - ERD)** - *Tiêu chí 1 (0.5đ) & Tiêu chí 4 (1.0đ)*
-3. **Sơ đồ Kiến trúc Microservices (Microservices Architecture Diagram)** - *Tiêu chí 2 (1.5đ)*
-4. **Sơ đồ Tuần tự Giao dịch & Xử lý Đồng thời (Saga Concurrency Sequence Diagram)** - *Tiêu chí 6 (1.5đ)*
+Tài liệu tổng hợp các sơ đồ của phân hệ đóng học phí:
+
+1. Sơ đồ Use Case (tiêu chí 1)
+2. Sơ đồ ERD (tiêu chí 1 và 4)
+3. Sơ đồ kiến trúc Microservices (tiêu chí 2)
+4. Sơ đồ tuần tự giao dịch và xử lý đồng thời (tiêu chí 6)
+
+Bản vẽ gốc dùng để trình chiếu là `docs/ibanking-diagrams.drawio` (3 trang: Use Case, ERD, Microservices Architecture). Các sơ đồ mermaid dưới đây có cùng nội dung để xem trực tiếp trên GitHub.
 
 ---
 
-## 1. Sơ đồ Ca sử dụng (Use Case Diagram)
+## 1. Sơ đồ Use Case
 
-Hệ thống phục vụ 2 tác nhân (Actors):
-- **Khách hàng / Người nộp tiền (User)**: Sinh viên hoặc phụ huynh thực hiện đăng nhập, kiểm tra số dư, tra cứu học phí sinh viên theo MSSV, thực hiện nộp tiền qua mã OTP bảo mật và xem lịch sử giao dịch.
-- **Dịch vụ Thông báo / Email (Notification Service / SMTP)**: Hệ thống ngoài nhận lệnh gửi OTP và hóa đơn điện tử.
+Tác nhân:
+
+- **Người dùng (người nộp tiền):** đăng nhập, xem thông tin tài khoản, tra cứu và thanh toán học phí cho mình hoặc cho sinh viên khác, xem lịch sử giao dịch, quên mật khẩu, đăng xuất.
+- **Hệ thống email (SMTP):** tác nhân ngoài, nhận email OTP và email xác nhận.
+
+Quan hệ:
+
+- *Thanh toán học phí* «include» *Tra cứu học phí* và *Xác thực OTP*.
+- *Xác thực OTP* và *Quên mật khẩu* «include» *Gửi email*.
+- *Quên mật khẩu* «extend» *Đăng nhập*; *Gửi lại OTP* «extend» *Xác thực OTP*.
 
 ```mermaid
 flowchart LR
-    User(("fa:fa-user Khách hàng\n(Người nộp tiền)"))
-    EmailService(("fa:fa-envelope Email Service\n(SMTP / Notification)"))
+    User["Người dùng<br/>(người nộp tiền)"]
+    Email["Hệ thống email<br/>(SMTP)"]
 
-    subgraph System ["HỆ THỐNG iBANKING - PHÂN HỆ ĐÓNG HỌC PHÍ"]
-        UC1(["Đăng nhập & Xác thực"])
-        UC2(["Xem thông tin tài khoản & Số dư"])
-        UC3(["Quên / Đặt lại mật khẩu qua OTP"])
-        UC4(["Tra cứu học phí theo MSSV"])
-        UC5(["Khởi tạo giao dịch thanh toán"])
-        UC6(["Nhận mã OTP qua email"])
-        UC7(["Xác thực OTP & Chốt giao dịch"])
-        UC8(["Xem lịch sử sao kê giao dịch"])
-        UC9(["Gửi email hóa đơn xác nhận"])
+    subgraph System ["Hệ thống iBanking: đóng học phí"]
+        UC1(["Đăng nhập"])
+        UC2(["Thông tin tài khoản"])
+        UC3(["Tra cứu học phí"])
+        UC4(["Thanh toán học phí"])
+        UC5(["Lịch sử giao dịch"])
+        UC6(["Đăng xuất"])
+        UC7(["Quên mật khẩu"])
+        UC8(["Gửi email"])
+        UC9(["Xác thực OTP"])
+        UC10(["Gửi lại OTP"])
     end
 
-    User --> UC1
-    User --> UC2
-    User --> UC3
-    User --> UC4
-    User --> UC5
-    User --> UC7
-    User --> UC8
+    User --- UC1
+    User --- UC2
+    User --- UC3
+    User --- UC4
+    User --- UC5
+    User --- UC6
+    UC8 --- Email
 
-    UC5 -.->|"<<include>>"| UC6
-    UC6 --> EmailService
-    UC7 -.->|"<<include>>"| UC9
-    UC9 --> EmailService
+    UC4 -.->|"«include»"| UC3
+    UC4 -.->|"«include»"| UC9
+    UC9 -.->|"«include»"| UC8
+    UC7 -.->|"«include»"| UC8
+    UC7 -.->|"«extend»"| UC1
+    UC10 -.->|"«extend»"| UC9
 ```
 
 ---
 
-## 2. Sơ đồ Thực thể Mối quan hệ (ERD - Entity Relationship Diagram)
+## 2. Sơ đồ ERD
 
-Sơ đồ quan hệ thực thể chuẩn hóa bám sát cấu trúc cơ sở dữ liệu của đồ án:
+Sơ đồ khớp với `database/init.sql`. Mỗi service sở hữu một database riêng:
+
+- **`account_db`**: `users`, `password_reset_otps`
+- **`tuition_db`**: `students`, `tuition_fees`
+- **`payment_db`**: `transactions`, `otp_codes`
+
+Quan hệ trong cùng một database dùng khóa ngoại thật. `transactions.user_id` và `transactions.tuition_id` là liên kết logic sang database khác (không có khóa ngoại thật), Payment Service kiểm tra qua API.
 
 ```mermaid
 erDiagram
-    STUDENTS ||--o{ TUITION_FEES : "co (has)"
-    USERS ||--o{ TRANSACTIONS : "thuc hien (executes)"
-    TUITION_FEES ||--o{ TRANSACTIONS : "duoc thanh toan boi (paid by)"
-    TRANSACTIONS ||--o{ OTP_CODES : "xac thuc bang (authenticated by)"
-    USERS ||--o{ PASSWORD_RESET_OTPS : "yeu cau reset (requests)"
-
-    STUDENTS {
-        string mssv PK "Mã số sinh viên"
-        string full_name "Họ tên sinh viên"
-    }
-
-    TUITION_FEES {
-        int id PK
-        string mssv FK "Tham chiếu STUDENTS(mssv)"
-        decimal amount "Số tiền học phí (CHECK > 0)"
-        string status "Trạng thái: PENDING | PAID"
-        int version "Optimistic Locking Version"
-    }
+    USERS ||--o{ PASSWORD_RESET_OTPS : "có"
+    STUDENTS ||--o| TUITION_FEES : "có"
+    USERS ||--o{ TRANSACTIONS : "thực hiện (logic)"
+    TUITION_FEES ||--o{ TRANSACTIONS : "được thanh toán bởi (logic)"
+    TRANSACTIONS ||--o{ OTP_CODES : "xác thực bằng"
 
     USERS {
         int id PK
-        string username UK "Tên đăng nhập / Họ tên / SĐT / Email"
-        string password_hash "Mật khẩu mã hóa Bcrypt"
-        string full_name "Họ tên chủ tài khoản"
-        string phone "Số điện thoại liên hệ"
-        string email "Email nhận mã OTP"
-        decimal balance "Số dư khả dụng (CHECK >= 0)"
-    }
-
-    TRANSACTIONS {
-        int id PK
-        int user_id FK "ID người thanh toán"
-        int tuition_id FK "ID khoản học phí"
-        decimal amount "Số tiền thanh toán"
-        string status "PENDING_OTP | SUCCESS | FAILED | EXPIRED"
-        timestamp created_at "Thời điểm tạo GD"
-    }
-
-    OTP_CODES {
-        int id PK
-        int transaction_id FK "Liên kết TRANSACTIONS(id)"
-        string code_hash "Mã OTP băm SHA-256"
-        timestamp expires_at "Thời hạn hiệu lực (5 phút)"
-        boolean used "Đã sử dụng hay chưa (Single-use)"
+        varchar username UK
+        varchar password_hash "bcrypt"
+        varchar full_name
+        varchar phone
+        varchar email
+        bigint balance "CHECK >= 0"
     }
 
     PASSWORD_RESET_OTPS {
         int id PK
-        int user_id FK "Liên kết USERS(id)"
-        string code_hash "Mã OTP đặt lại mật khẩu"
-        timestamp expires_at "Hạn hiệu lực (5 phút)"
-        boolean used "Trạng thái sử dụng"
+        int user_id FK
+        varchar code_hash "HMAC-SHA256"
+        timestamp expires_at "5 phút"
+        int attempts "sai tối đa 5 lần"
+        boolean used
+        timestamp verified_at
+        timestamp consumed_at
+        timestamp created_at
+    }
+
+    STUDENTS {
+        varchar mssv PK
+        varchar full_name
+    }
+
+    TUITION_FEES {
+        int id PK
+        varchar mssv FK,UK
+        bigint amount "CHECK > 0"
+        varchar status "PENDING, PAID"
+        int version "optimistic lock"
+        timestamp created_at
+    }
+
+    TRANSACTIONS {
+        int id PK
+        int user_id "FK logic"
+        varchar mssv
+        int tuition_id "FK logic"
+        int tuition_version
+        bigint amount "CHECK > 0"
+        varchar status "PENDING_OTP, SUCCESS, FAILED, EXPIRED"
+        varchar fail_reason
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    OTP_CODES {
+        int id PK
+        int transaction_id FK
+        varchar code_hash "HMAC-SHA256, UK khi chưa dùng"
+        timestamp expires_at "5 phút"
+        boolean used
+        int attempts "sai tối đa 5 lần"
+        timestamp created_at
     }
 ```
 
-### Phân rã Cơ sở dữ liệu theo Microservices (Database-per-Service)
-Để đảm bảo tính độc lập và khả năng mở rộng (Scale-out):
-- **`account_db`**: Chứa bảng `users`, `password_reset_otps`.
-- **`tuition_db`**: Chứa bảng `students`, `tuition_fees`.
-- **`payment_db`**: Chứa bảng `transactions`, `otp_codes`.
-*(Khóa ngoại giữa `transactions` và `users`/`tuition_fees` là liên kết logic cấp ứng dụng (Logical Cross-Service Reference), tuân thủ nghiêm ngặt nguyên lý Microservices).*
-
 ---
 
-## 3. Sơ đồ Kiến trúc Microservices (Microservices Architecture Diagram)
+## 3. Sơ đồ kiến trúc Microservices
 
-Hệ thống được tổ chức thành 4 Microservices độc lập và 1 Frontend Web Application:
+Frontend gọi API bằng JWT; các service gọi nhau qua endpoint `/internal/*` với header `X-Internal-Key`. Payment Service điều phối giao dịch (Saga có bù trừ). Toàn bộ hệ thống chạy bằng Docker Compose (6 container).
 
 ```mermaid
 flowchart TB
-    subgraph Client ["Tầng Trình duyệt (Client Application)"]
-        Web["Frontend Web App\n(React 19 + TypeScript + Redux Toolkit + Bootstrap)\nPort 5173"]
+    Web["Frontend (React + Nginx)<br/>cổng 5173"]
+
+    subgraph Services ["Microservices (FastAPI)"]
+        Auth["Auth service<br/>cổng 8001<br/>Đăng nhập, tài khoản, số dư, quên mật khẩu"]
+        Pay["Payment service<br/>cổng 8003<br/>Giao dịch, OTP, điều phối Saga, lịch sử"]
+        Tui["Tuition service<br/>cổng 8002<br/>Tra cứu và chốt học phí"]
+        Noti["Notification service<br/>cổng 8004<br/>Gửi email"]
     end
 
-    subgraph Services ["Tầng Microservices Backend (FastAPI Python)"]
-        AuthSvc["Auth / Account Service\nPort 8001\n- Quản lý tài khoản & JWT Token\n- Cập nhật số dư (Debit / Credit nguyên tử)\n- Quên mật khẩu & OTP"]
-        TuitionSvc["Tuition Service\nPort 8002\n- Tra cứu sinh viên & học phí theo MSSV\n- Chốt học phí (Optimistic Locking)"]
-        PaymentSvc["Payment Service (Saga Coordinator)\nPort 8003\n- Tạo GD & sinh mã OTP ngẫu nhiên\n- Xác thực OTP & điều phối Saga\n- Quản lý lịch sử sao kê GD"]
-        NotifySvc["Notification Service\nPort 8004\n- Gửi email mã OTP qua SMTP\n- Gửi email hóa đơn xác nhận"]
+    SMTP["SMTP (Gmail)<br/>dịch vụ ngoài"]
+
+    subgraph DB ["PostgreSQL 16 (cổng 5433), mỗi service một database"]
+        DBA[("account_db")]
+        DBP[("payment_db")]
+        DBT[("tuition_db")]
     end
 
-    subgraph Database ["Tầng Lưu trữ Dữ liệu (PostgreSQL 16 - Port 5433)"]
-        DB_Account[("account_db\n(users, password_reset_otps)")]
-        DB_Tuition[("tuition_db\n(students, tuition_fees)")]
-        DB_Payment[("payment_db\n(transactions, otp_codes)")]
-    end
-
-    %% Client Communication
-    Web -->|"1. Đăng nhập / Lấy User Info (JWT)"| AuthSvc
-    Web -->|"2. Tra cứu học phí theo MSSV"| TuitionSvc
-    Web -->|"3. Tạo GD / Nhập OTP / Xem sao kê"| PaymentSvc
-
-    %% Inter-service Communication (Bảo mật bằng X-Internal-Key)
-    PaymentSvc -->|"Kiểm tra số dư & Trừ/Hoàn tiền"| AuthSvc
-    PaymentSvc -->|"Kiểm tra học phí & Chốt PAID"| TuitionSvc
-    PaymentSvc -->|"Yêu cầu gửi Email OTP / Hóa đơn"| NotifySvc
-    AuthSvc -->|"Yêu cầu gửi Email Reset Password"| NotifySvc
-
-    %% Database Connections
-    AuthSvc --> DB_Account
-    TuitionSvc --> DB_Tuition
-    PaymentSvc --> DB_Payment
+    Web -->|"REST + JWT"| Auth
+    Web -->|"REST + JWT"| Pay
+    Web -->|"REST"| Tui
+    Pay -->|"REST: trừ / hoàn tiền"| Auth
+    Pay -->|"REST: chốt học phí"| Tui
+    Pay -->|"REST: email OTP, xác nhận"| Noti
+    Auth -->|"REST: OTP quên mật khẩu"| Noti
+    Noti -->|"SMTP"| SMTP
+    Auth -.-> DBA
+    Pay -.-> DBP
+    Tui -.-> DBT
 ```
 
 ---
@@ -187,7 +206,7 @@ sequenceDiagram
     Pay->>Pay: Khóa dòng giao dịch (SELECT FOR UPDATE) & đối chiếu mã OTP
     
     alt Mã OTP không hợp lệ hoặc hết hạn
-        Pay-->>User: 400 Bad Request / 410 Expired
+        Pay-->>User: 400 OTP sai / 410 hết hạn / 429 sai quá 5 lần
     else OTP hợp lệ
         Note over Pay,Auth: Bước Saga 1: Trừ tiền tài khoản người nộp
         Pay->>Auth: POST /internal/accounts/{uid}/debit {amount}
@@ -219,12 +238,8 @@ sequenceDiagram
 
 ---
 
-## 5. File vẽ Draw.io sẵn sàng trình chiếu
+## 5. File draw.io
 
-File vẽ chi tiết đã được cập nhật tại:
-`docs/ibanking-diagrams.drawio`
+Bản vẽ gốc: `docs/ibanking-diagrams.drawio`, gồm 3 trang **1. Use Case**, **2. ERD**, **3. Microservices Architecture**. Sơ đồ tuần tự chỉ có ở dạng mermaid trong file này.
 
-Để mở và chỉnh sửa trên giao diện kéo thả trực quan:
-1. Mở trình duyệt truy cập: [https://app.diagrams.net](https://app.diagrams.net)
-2. Chọn **Open Existing Diagram** -> Chọn file `docs/ibanking-diagrams.drawio` trong thư mục dự án.
-3. Toàn bộ các tab sơ đồ (Use Case, Microservices, Sequence, ERD) đã được thiết kế sẵn và tương thích 100%.
+Mở bằng https://app.diagrams.net → **Open Existing Diagram**. Để xuất ảnh: chọn trang, **File → Export as → PNG** (zoom 200%). Ảnh dùng trong repo: `docs/erd.png` (trang ERD), `docs/architecture.png` (trang kiến trúc).
