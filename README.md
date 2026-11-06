@@ -62,22 +62,26 @@ docker compose down -v                        # dừng và xóa toàn bộ dữ 
 
 ## Tài khoản và dữ liệu mẫu
 
-Mật khẩu của cả 3 tài khoản: `123456`
+Mật khẩu của tất cả tài khoản: `123456`
 
-| Username | Họ tên | Số dư | MSSV tương ứng |
-|---|---|---|---|
-| tan | Nguyen Huu Tan | 20.000.000 | 524H0028 |
-| thai | Tran Minh Thai | 5.000.000 | 524H0029 |
-| viet | Le Quoc Viet | 30.000.000 | 524H0030 |
+Hệ thống hỗ trợ đăng nhập bằng chính **Họ và tên đầy đủ** (có dấu hoặc không dấu), hoặc **Số điện thoại**, **Email**:
+
+| Tên đăng nhập (Họ tên) | Tên viết tắt | Số điện thoại | Số dư ban đầu | MSSV tương ứng |
+|---|---|---|---|---|
+| **Nguyễn Hữu Tân** | `tan` | `0901111111` | 20.000.000 | 524H0028 |
+| **Trần Minh Thái** | `thai` | `0902222222` | 5.000.000 | 524H0029 |
+| **Lê Quốc Việt** | `viet` | `0903333333` | 30.000.000 | 524H0137 |
+| **Nguyễn Văn Nam** | `nam` | `0904444444` | 25.000.000 | - |
+| **Phạm Thị Lan** | `lan` | `0905555555` | 18.000.000 | - |
 
 Học phí (người dùng có thể đóng cho bất kỳ MSSV nào, không nhất thiết là của mình):
 
 | MSSV | Sinh viên | Số tiền | Trạng thái |
 |---|---|---|---|
-| 524H0028 | Nguyen Huu Tan | 15.000.000 | Chưa đóng |
-| 524H0029 | Tran Minh Thai | 12.500.000 | Chưa đóng |
-| 524H0030 | Le Quoc Viet | 12.500.000 | Đã đóng |
-| 524H0031 | Pham Gia Bao | 18.000.000 | Chưa đóng |
+| 524H0028 | Nguyễn Hữu Tân | 15.000.000 | Chưa đóng |
+| 524H0029 | Trần Minh Thái | 12.500.000 | Chưa đóng |
+| 524H0031 | Phạm Gia Bảo | 18.000.000 | Chưa đóng |
+| 524H0137 | Lê Quốc Việt | 12.500.000 | Đã đóng |
 
 ## Nhận mã OTP
 

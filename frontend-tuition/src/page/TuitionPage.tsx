@@ -45,6 +45,7 @@ const TuitionPage: React.FC = () => {
   const [otpOpen, setOtpOpen] = useState(false);
   const [txId, setTxId] = useState<number | null>(null);
   const [otp, setOtp] = useState("");
+  const [debugOtp, setDebugOtp] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
@@ -56,7 +57,7 @@ const TuitionPage: React.FC = () => {
     loadMe();
   }, []);
 
-  // Đếm ngược OTP khi modal đang mở
+  // Đếm ngược thời hạn hiệu lực của mã OTP
   useEffect(() => {
     if (!otpOpen) return undefined;
     const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
@@ -76,7 +77,7 @@ const TuitionPage: React.FC = () => {
     dispatch(fetchTuition(mssvInput.trim()));
   };
 
-  // Điều kiện để nút "Xác nhận giao dịch" được bật
+  // Điều kiện để bật nút Xác nhận giao dịch
   const canConfirm =
     !!data &&
     data.tuition_id != null &&
@@ -86,7 +87,7 @@ const TuitionPage: React.FC = () => {
     agreed &&
     !submitting;
 
-  // Bước 1: tạo giao dịch, hệ thống gửi OTP qua email
+  // Bước 1: Khởi tạo giao dịch thanh toán
   const handleConfirm = async () => {
     if (!data) return;
     setSubmitting(true);
@@ -96,16 +97,17 @@ const TuitionPage: React.FC = () => {
       setTxId(res.data.transaction_id);
       setOtp("");
       setOtpError(null);
+      setDebugOtp(res.data.debug_otp ?? null);
       setSecondsLeft(res.data.expires_in_seconds ?? OTP_SECONDS);
       setOtpOpen(true);
     } catch (err: any) {
-      setFormError(errMsg(err, "Không tạo được giao dịch"));
+      setFormError(errMsg(err, "Không tạo được giao dịch thanh toán"));
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Bước 2: nhập OTP và xác nhận lần cuối
+  // Bước 2: Xác thực OTP và chốt giao dịch
   const handleVerify = async () => {
     if (txId == null || !data) return;
     setSubmitting(true);
@@ -115,7 +117,7 @@ const TuitionPage: React.FC = () => {
       setOtpOpen(false);
       setResult({
         ok: true,
-        message: "Thanh toán thành công",
+        message: "Thanh toán học phí thành công!",
         txId,
         amount: data.amount,
         mssv: data.mssv,
@@ -125,9 +127,9 @@ const TuitionPage: React.FC = () => {
     } catch (err: any) {
       const msg = errMsg(err, "Xác thực OTP thất bại");
       if (err.response?.status === 400) {
-        setOtpError(msg); // OTP sai: cho nhập lại
+        setOtpError(msg);
       } else {
-        setOtpOpen(false); // hết hạn, thiếu tiền, học phí đã được đóng...
+        setOtpOpen(false);
         setResult({ ok: false, message: msg, txId });
         loadMe();
         dispatch(fetchTuition(data.mssv));
@@ -144,9 +146,10 @@ const TuitionPage: React.FC = () => {
     try {
       const res = await paymentServices.resendOtp(txId);
       setOtp("");
+      setDebugOtp(res.data.debug_otp ?? null);
       setSecondsLeft(res.data.expires_in_seconds ?? OTP_SECONDS);
     } catch (err: any) {
-      setOtpError(errMsg(err, "Không gửi lại được OTP"));
+      setOtpError(errMsg(err, "Không gửi lại được mã OTP"));
     } finally {
       setSubmitting(false);
     }
@@ -155,266 +158,423 @@ const TuitionPage: React.FC = () => {
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
   const ss = String(secondsLeft % 60).padStart(2, "0");
 
-    return (
-    <div className="container py-4">
-      <div className="row justify-content-center">
-        <div className="col-12 col-md-9 col-lg-7">
-          {/* Header */}
-          <div className="d-flex justify-content-between align-items-center mb-4">
+  return (
+    <div>
+      {/* Header thanh điều hướng chuẩn ngân hàng */}
+      <nav className="banking-navbar navbar navbar-expand-lg px-3 py-2">
+        <div className="container">
+          <Link to="/" className="banking-brand">
+            <div className="brand-icon">
+              <i className="bi bi-bank"></i>
+            </div>
             <div>
-              <h4 className="fw-bold text-primary mb-0">Thanh toán học phí</h4>
-              <span className="text-muted small">iBanking</span>
+              <span className="brand-title">iBanking</span>
+              <span className="brand-subtitle">Phân hệ đóng học phí</span>
             </div>
-            <div className="text-end">
-              <div className="small fw-semibold">{me?.full_name}</div>
-              <div className="mt-1">
-                <Link className="btn btn-sm btn-outline-primary me-2" to="/history">
-                  Lịch sử giao dịch
-                </Link>
-                <button className="btn btn-sm btn-outline-secondary" onClick={logout}>
-                  Đăng xuất
-                </button>
-              </div>
-            </div>
-          </div>
+          </Link>
 
-          {/* Kết quả giao dịch */}
-          {result && (
-            <div className={`card shadow-sm border-0 mb-4 ${result.ok ? "border-success" : ""}`}>
-              <div className="card-body p-4 text-center">
-                <h5 className={result.ok ? "text-success fw-bold" : "text-danger fw-bold"}>
-                  {result.ok ? "✔ " : "✖ "}
-                  {result.message}
-                </h5>
-                {result.txId != null && (
-                  <p className="mb-1 text-muted">Mã giao dịch: #{result.txId}</p>
-                )}
-                {result.ok && result.amount != null && (
-                  <p className="mb-1">
-                    Đã thanh toán <strong>{money(result.amount)}</strong> cho MSSV{" "}
-                    <strong>{result.mssv}</strong>
-                  </p>
-                )}
-                {me && <p className="mb-3">Số dư hiện tại: <strong>{money(me.balance)}</strong></p>}
-                {result.ok && <p className="small text-muted">Email xác nhận đã được gửi.</p>}
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    setResult(null);
-                    setAgreed(false);
-                  }}
-                >
-                  Thực hiện giao dịch mới
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* a. Người nộp tiền (chỉ đọc) */}
-          <div className="card shadow-sm border-0 mb-4">
-            <div className="card-header bg-white fw-bold text-secondary text-uppercase small">
-              Người nộp tiền
-            </div>
-            <div className="card-body">
-              <div className="row g-3">
-                <div className="col-12">
-                  <label className="form-label small text-muted mb-1">Họ và tên</label>
-                  <input className="form-control bg-light" value={me?.full_name ?? ""} readOnly />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small text-muted mb-1">Số điện thoại</label>
-                  <input className="form-control bg-light" value={me?.phone ?? ""} readOnly />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small text-muted mb-1">Email</label>
-                  <input className="form-control bg-light" value={me?.email ?? ""} readOnly />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* b. Tra cứu học phí */}
-          <div className="card shadow-sm border-0 mb-4">
-            <div className="card-header bg-white fw-bold text-secondary text-uppercase small">
-              Thông tin học phí
-            </div>
-            <div className="card-body">
-              <label htmlFor="mssvInput" className="form-label fw-semibold">
-                Mã số sinh viên
-              </label>
-              <div className="input-group">
-                <input
-                  id="mssvInput"
-                  className="form-control"
-                  placeholder="Nhập MSSV (VD: 524H0028)"
-                  value={mssvInput}
-                  onChange={(e) => setMssvInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <button
-                  className="btn btn-primary px-4 fw-semibold"
-                  onClick={handleSearch}
-                  disabled={loading}
-                >
-                  {loading ? "Đang tra cứu..." : "Tra cứu"}
-                </button>
-              </div>
-
-              {error && <div className="alert alert-danger mt-3 mb-0">{error}</div>}
-
-              {data && (
-                <div className="mt-4">
-                  <div className="row mb-2">
-                    <div className="col-5 text-muted">Họ và tên SV:</div>
-                    <div className="col-7 fw-semibold">{data.full_name}</div>
+          <div className="d-flex align-items-center gap-3 ms-auto">
+            <div className="d-none d-md-flex align-items-center gap-3 px-3 py-1 bg-light rounded-pill border">
+              <div className="d-flex align-items-center gap-2">
+                <i className="bi bi-person-circle text-primary fs-5"></i>
+                <div className="text-start">
+                  <div className="fw-semibold small text-dark lh-sm">{me?.full_name ?? "Đang tải..."}</div>
+                  <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                    Số dư: <strong className="text-primary">{me ? money(me.balance) : "---"}</strong>
                   </div>
-                  <div className="row mb-2">
-                    <div className="col-5 text-muted">MSSV:</div>
-                    <div className="col-7 fw-semibold">{data.mssv}</div>
+                </div>
+              </div>
+            </div>
+
+            <Link to="/history" className="btn btn-sm btn-outline-secondary rounded-pill px-3">
+              <i className="bi bi-clock-history me-1"></i> Lịch sử GD
+            </Link>
+
+            <button onClick={logout} className="btn btn-sm btn-outline-danger rounded-pill px-3">
+              <i className="bi bi-box-arrow-right me-1"></i> Đăng xuất
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Container */}
+      <main className="container py-4">
+        <div className="row justify-content-center">
+          <div className="col-12 col-lg-8">
+            {/* Kết quả giao dịch sau khi nộp */}
+            {result && (
+              <div className={`banking-card border-${result.ok ? "success" : "danger"} mb-4`}>
+                <div className={`p-4 text-center ${result.ok ? "bg-success-subtle text-success-emphasis" : "bg-danger-subtle text-danger-emphasis"}`}>
+                  <div className="mb-2">
+                    <i className={`bi ${result.ok ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger"} fs-1`}></i>
                   </div>
-                  {data.tuition_id == null ? (
-                    <div className="alert alert-info mt-3 mb-0">
-                      Sinh viên này chưa có khoản học phí.
+                  <h5 className="fw-bold mb-1">{result.message}</h5>
+                  {result.txId != null && (
+                    <p className="text-muted small mb-1">Mã tham chiếu giao dịch: <strong>#{result.txId}</strong></p>
+                  )}
+                  {result.ok && result.amount != null && (
+                    <p className="mb-2">
+                      Đã thanh toán thành công <strong>{money(result.amount)}</strong> cho sinh viên: <strong>{result.mssv}</strong>
+                    </p>
+                  )}
+                  {result.ok && (
+                    <div className="small text-muted mb-3">
+                      <i className="bi bi-envelope-check me-1"></i>
+                      Hóa đơn điện tử đã được gửi tới email cá nhân.
                     </div>
-                  ) : (
-                    <>
-                      <div className="row mb-2 align-items-center">
-                        <div className="col-5 text-muted">Số tiền cần đóng:</div>
-                        <div className="col-7 fs-5 fw-bold text-danger">{money(data.amount)}</div>
+                  )}
+                  <button
+                    className="btn btn-sm btn-primary rounded-pill px-3"
+                    onClick={() => {
+                      setResult(null);
+                      setAgreed(false);
+                    }}
+                  >
+                    Thực hiện giao dịch mới
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* a. Nhóm thông tin người nộp tiền (Chỉ đọc) */}
+            <div className="banking-card">
+              <div className="banking-card-header">
+                <h6 className="card-title-text">
+                  <i className="bi bi-person-vcard text-primary"></i>
+                  1. Thông tin người nộp tiền
+                </h6>
+                <span className="badge bg-light text-muted border fw-normal" style={{ fontSize: "0.75rem" }}>
+                  Chỉ đọc
+                </span>
+              </div>
+              <div className="banking-card-body">
+                <div className="row g-3">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Họ và tên chủ tài khoản</label>
+                    <input className="form-control banking-input" value={me?.full_name ?? ""} readOnly />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Số điện thoại</label>
+                    <input className="form-control banking-input" value={me?.phone ?? ""} readOnly />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Email nhận OTP</label>
+                    <input className="form-control banking-input" value={me?.email ?? ""} readOnly />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Số dư khả dụng</label>
+                    <input
+                      className="form-control banking-input fw-bold text-primary"
+                      value={me ? money(me.balance) : ""}
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* b. Nhóm tra cứu học phí */}
+            <div className="banking-card">
+              <div className="banking-card-header">
+                <h6 className="card-title-text">
+                  <i className="bi bi-search text-primary"></i>
+                  2. Tra cứu học phí sinh viên
+                </h6>
+              </div>
+              <div className="banking-card-body">
+                <label htmlFor="mssvInput" className="form-label">
+                  Mã số sinh viên (MSSV)
+                </label>
+                <div className="input-group mb-2">
+                  <span className="input-group-text bg-light border-end-0 text-muted">
+                    <i className="bi bi-mortarboard"></i>
+                  </span>
+                  <input
+                    id="mssvInput"
+                    className="form-control banking-input border-start-0"
+                    placeholder="Nhập MSSV (Ví dụ: 524H0028, 524H0029, 524H0137...)"
+                    value={mssvInput}
+                    onChange={(e) => setMssvInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                  <button
+                    className="btn btn-banking-primary d-flex align-items-center gap-2"
+                    onClick={handleSearch}
+                    disabled={loading || !mssvInput.trim()}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm" role="status"></span>
+                        Đang tìm...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-search"></i>
+                        Tra cứu
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Gợi ý nhanh MSSV */}
+                <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
+                  <span className="small text-muted">Gợi ý kiểm thử:</span>
+                  {["524H0028", "524H0029", "524H0137", "524H0031"].map((code) => (
+                    <button
+                      key={code}
+                      type="button"
+                      className="chip-btn"
+                      onClick={() => {
+                        setMssvInput(code);
+                        dispatch(fetchTuition(code));
+                      }}
+                    >
+                      {code}
+                    </button>
+                  ))}
+                </div>
+
+                {error && (
+                  <div className="alert alert-danger py-2 px-3 small rounded-3 mt-3 mb-0 d-flex align-items-center gap-2">
+                    <i className="bi bi-exclamation-circle-fill"></i>
+                    <div>{error}</div>
+                  </div>
+                )}
+
+                {/* Khung kết quả tra cứu */}
+                {data && (
+                  <div className="tuition-result-box">
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <span className="fw-semibold text-secondary small text-uppercase">Thông tin sinh viên</span>
+                      {data.tuition_id == null ? (
+                        <span className="badge bg-secondary">Không có công nợ</span>
+                      ) : data.status === "PAID" ? (
+                        <span className="badge-paid">
+                          <i className="bi bi-check-circle-fill me-1"></i>Đã thanh toán
+                        </span>
+                      ) : (
+                        <span className="badge-pending">
+                          <i className="bi bi-clock-history me-1"></i>Chưa thanh toán
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="row g-2 mb-2">
+                      <div className="col-12 col-sm-6">
+                        <div className="text-muted small">Họ và tên sinh viên</div>
+                        <div className="fw-bold text-dark fs-6">{data.full_name}</div>
                       </div>
-                      <div className="row">
-                        <div className="col-5 text-muted">Trạng thái:</div>
-                        <div className="col-7">
-                          {data.status === "PAID" ? (
-                            <span className="badge bg-success">Đã thanh toán</span>
-                          ) : (
-                            <span className="badge bg-warning text-dark">Chưa thanh toán</span>
-                          )}
+                      <div className="col-12 col-sm-6">
+                        <div className="text-muted small">Mã số sinh viên (MSSV)</div>
+                        <div className="fw-bold text-primary fs-6">{data.mssv}</div>
+                      </div>
+                    </div>
+
+                    {data.tuition_id == null ? (
+                      <div className="alert alert-info py-2 px-3 small rounded-3 mt-2 mb-0">
+                        Sinh viên này hiện không có khoản học phí nào cần thanh toán.
+                      </div>
+                    ) : (
+                      <div className="pt-3 mt-2 border-top d-flex justify-content-between align-items-center">
+                        <div>
+                          <div className="text-muted small">Số tiền cần đóng</div>
+                          <div className="fs-5 fw-bold text-danger">{money(data.amount)}</div>
+                        </div>
+                        <div className="text-end text-muted small">
+                          Học kỳ 1 • Năm học 2024-2025
                         </div>
                       </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* c. Thông tin thanh toán */}
-          {data && data.tuition_id != null && data.status === "PENDING" && (
-            <div className="card shadow-sm border-0 mb-4">
-              <div className="card-header bg-white fw-bold text-secondary text-uppercase small">
-                Thông tin thanh toán
-              </div>
-              <div className="card-body">
-                <div className="row mb-2">
-                  <div className="col-5 text-muted">Số dư khả dụng:</div>
-                  <div className="col-7 fw-semibold">{me ? money(me.balance) : "..."}</div>
-                </div>
-                <div className="row mb-3">
-                  <div className="col-5 text-muted">Số tiền cần thanh toán:</div>
-                  <div className="col-7 fw-semibold text-danger">{money(data.amount)}</div>
-                </div>
-
-                {me && me.balance < data.amount && (
-                  <div className="alert alert-warning py-2">
-                    Số dư không đủ để thanh toán khoản học phí này.
-                  </div>
-                )}
-
-                <div className="form-check mb-3">
-                  <input
-                    id="terms"
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={agreed}
-                    onChange={(e) => setAgreed(e.target.checked)}
-                  />
-                  <label htmlFor="terms" className="form-check-label small">
-                    Tôi đồng ý với các điều khoản và điều kiện của hệ thống, và xác nhận thanh toán
-                    toàn bộ khoản học phí trên.
-                  </label>
-                </div>
-
-                {formError && <div className="alert alert-danger py-2">{formError}</div>}
-
-                <button
-                  className="btn btn-success w-100 py-2 fw-semibold"
-                  onClick={handleConfirm}
-                  disabled={!canConfirm}
-                >
-                  {submitting ? "Đang xử lý..." : "Xác nhận giao dịch"}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Modal nhập OTP */}
-      {otpOpen && (
-        <>
-          <div className="modal-backdrop fade show"></div>
-          <div className="modal fade show d-block" tabIndex={-1}>
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title">Xác thực giao dịch bằng OTP</h5>
-                </div>
-                <div className="modal-body">
-                  <p className="text-muted small">
-                    Mã OTP gồm 6 chữ số đã được gửi tới email <strong>{me?.email}</strong>.
-                  </p>
-                  <input
-                    className="form-control form-control-lg text-center"
-                    style={{ letterSpacing: "0.5em" }}
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="------"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && otp.length === 6 && secondsLeft > 0 && handleVerify()
-                    }
-                    autoFocus
-                  />
-                  <div className="text-center mt-2">
-                    {secondsLeft > 0 ? (
-                      <span className="text-muted small">
-                        OTP hết hạn sau{" "}
-                        <strong className="text-danger">
-                          {mm}:{ss}
-                        </strong>
-                      </span>
-                    ) : (
-                      <span className="text-danger small fw-semibold">
-                        OTP đã hết hạn, vui lòng gửi lại mã.
-                      </span>
                     )}
                   </div>
-                  {otpError && <div className="alert alert-danger py-2 mt-3 mb-0">{otpError}</div>}
+                )}
+              </div>
+            </div>
+
+            {/* c. Nhóm thông tin thanh toán & Xác nhận */}
+            {data && data.tuition_id != null && data.status === "PENDING" && (
+              <div className="banking-card border-primary">
+                <div className="banking-card-header bg-light">
+                  <h6 className="card-title-text text-primary">
+                    <i className="bi bi-shield-check text-primary"></i>
+                    3. Xác nhận thanh toán học phí
+                  </h6>
                 </div>
-                <div className="modal-footer">
+                <div className="banking-card-body">
+                  <div className="p-3 bg-light rounded-3 mb-3">
+                    <div className="d-flex justify-content-between mb-2">
+                      <span className="text-muted">Số dư khả dụng hiện tại:</span>
+                      <span className="fw-semibold">{me ? money(me.balance) : "---"}</span>
+                    </div>
+                    <div className="d-flex justify-content-between mb-2">
+                      <span className="text-muted">Số tiền thanh toán học phí:</span>
+                      <span className="fw-bold text-danger">-{money(data.amount)}</span>
+                    </div>
+                    <div className="border-top pt-2 d-flex justify-content-between">
+                      <span className="fw-semibold">Số dư còn lại sau thanh toán:</span>
+                      <span className={`fw-bold ${me && me.balance >= data.amount ? "text-success" : "text-danger"}`}>
+                        {me ? money(me.balance - data.amount) : "---"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {me && me.balance < data.amount && (
+                    <div className="alert alert-warning py-2 small mb-3 d-flex align-items-center gap-2">
+                      <i className="bi bi-exclamation-triangle-fill fs-5 text-warning"></i>
+                      <div>Số dư hiện tại không đủ để thực hiện giao dịch này. Vui lòng nạp thêm tiền.</div>
+                    </div>
+                  )}
+
+                  <div className="form-check mb-3">
+                    <input
+                      id="terms"
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={agreed}
+                      onChange={(e) => setAgreed(e.target.checked)}
+                      style={{ cursor: "pointer" }}
+                    />
+                    <label htmlFor="terms" className="form-check-label small text-secondary" style={{ cursor: "pointer" }}>
+                      Tôi đồng ý với các điều khoản giao dịch của iBanking và xác nhận thanh toán khoản học phí này.
+                    </label>
+                  </div>
+
+                  {formError && (
+                    <div className="alert alert-danger py-2 small mb-3">
+                      {formError}
+                    </div>
+                  )}
+
                   <button
-                    className="btn btn-outline-secondary"
+                    className="btn btn-banking-success w-100 d-flex align-items-center justify-content-center gap-2 shadow-sm"
+                    onClick={handleConfirm}
+                    disabled={!canConfirm}
+                  >
+                    {submitting ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm" role="status"></span>
+                        Đang xử lý giao dịch...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-lock-fill"></i>
+                        Xác nhận giao dịch ({money(data.amount)})
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* Modal xác thực OTP giao dịch */}
+      {otpOpen && (
+        <>
+          <div className="modal-backdrop fade show" style={{ backgroundColor: "rgba(15, 23, 42, 0.5)" }}></div>
+          <div className="modal fade show d-block" tabIndex={-1}>
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content border-0 shadow rounded-4 overflow-hidden">
+                <div className="modal-header border-bottom py-3 px-4 bg-light">
+                  <div className="d-flex align-items-center gap-2">
+                    <div className="text-primary fs-5">
+                      <i className="bi bi-shield-lock-fill"></i>
+                    </div>
+                    <h5 className="modal-title fw-bold text-dark fs-6 mb-0">Xác thực OTP giao dịch</h5>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={() => !submitting && setOtpOpen(false)}
+                  ></button>
+                </div>
+
+                <div className="modal-body p-4 text-center">
+                  <p className="text-muted small mb-2">
+                    Mã xác thực gồm <strong>6 chữ số</strong> đã được gửi tới email:
+                  </p>
+                  <div className="fw-semibold text-primary mb-3">{me?.email}</div>
+
+                  {/* Nút hỗ trợ test nhanh chỉ hiển thị nếu có debugOtp từ backend */}
+                  {debugOtp && (
+                    <div className="alert alert-light border py-1 px-3 small d-inline-flex align-items-center gap-2 mb-3 rounded-pill text-muted">
+                      <span>Mã kiểm thử: <strong>{debugOtp}</strong></span>
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0 text-decoration-none fw-semibold"
+                        onClick={() => setOtp(debugOtp)}
+                      >
+                        [Điền ngay]
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="my-2">
+                    <input
+                      className="form-control form-control-lg otp-box-clean"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="······"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && otp.length === 6 && secondsLeft > 0 && handleVerify()
+                      }
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="d-flex align-items-center justify-content-center gap-1 small text-muted mt-2">
+                    <i className="bi bi-clock text-danger"></i>
+                    {secondsLeft > 0 ? (
+                      <span>
+                        Mã hết hạn sau: <strong className="text-danger">{mm}:{ss}</strong>
+                      </span>
+                    ) : (
+                      <span className="text-danger fw-semibold">Mã OTP đã hết hiệu lực.</span>
+                    )}
+                  </div>
+
+                  {otpError && (
+                    <div className="alert alert-danger py-2 mt-3 mb-0 small rounded-3">
+                      <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                      {otpError}
+                    </div>
+                  )}
+                </div>
+
+                <div className="modal-footer border-top bg-light py-2 px-3 d-flex justify-content-between">
+                  <button
+                    className="btn btn-outline-secondary btn-sm rounded-pill px-3"
                     onClick={() => setOtpOpen(false)}
                     disabled={submitting}
                   >
-                    Hủy
+                    Hủy bỏ
                   </button>
-                  <button
-                    className="btn btn-outline-primary"
-                    onClick={handleResend}
-                    disabled={submitting}
-                  >
-                    Gửi lại OTP
-                  </button>
-                  <button
-                    className="btn btn-success"
-                    onClick={handleVerify}
-                    disabled={submitting || otp.length !== 6 || secondsLeft === 0}
-                  >
-                    {submitting ? "Đang xử lý..." : "Xác nhận"}
-                  </button>
+                  <div className="d-flex gap-2">
+                    <button
+                      className="btn btn-outline-primary btn-sm rounded-pill px-3"
+                      onClick={handleResend}
+                      disabled={submitting}
+                    >
+                      <i className="bi bi-arrow-clockwise me-1"></i> Gửi lại mã
+                    </button>
+                    <button
+                      className="btn btn-banking-primary btn-sm rounded-pill px-4"
+                      onClick={handleVerify}
+                      disabled={submitting || otp.length !== 6 || secondsLeft === 0}
+                    >
+                      {submitting ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm" role="status"></span>
+                          Đang duyệt...
+                        </>
+                      ) : (
+                        "Xác nhận"
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

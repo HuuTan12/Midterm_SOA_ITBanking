@@ -34,7 +34,7 @@ const ForgotPasswordPage: React.FC = () => {
     return () => clearInterval(id);
   }, [step]);
 
-  // Bước 1 (và gửi lại ở bước 2): yêu cầu gửi OTP về email
+  // Bước 1: gửi OTP về email
   const sendOtp = async () => {
     setLoading(true);
     setError(null);
@@ -45,7 +45,7 @@ const ForgotPasswordPage: React.FC = () => {
       setResendLeft(RESEND_SECONDS);
       setOtp("");
       setStep(2);
-      setInfo("Nếu email tồn tại trong hệ thống, mã OTP đã được gửi. Vui lòng kiểm tra hộp thư.");
+      setInfo("Mã OTP đã được gửi về email. Vui lòng kiểm tra hộp thư.");
     } catch (err: any) {
       setError(errMsg(err, "Không kết nối được server"));
     } finally {
@@ -107,32 +107,38 @@ const ForgotPasswordPage: React.FC = () => {
   return (
     <div className="container py-5">
       <div className="row justify-content-center">
-        <div className="col-12 col-md-6 col-lg-4">
-          <h3 className="fw-bold text-primary text-center mb-1">iBanking</h3>
-          <p className="text-center text-muted mb-4">Quên mật khẩu (bước {step}/3)</p>
+        <div className="col-12 col-sm-8 col-md-6 col-lg-5">
+          <div className="text-center mb-4">
+            <h4 className="fw-bold text-primary mb-1">Khôi phục mật khẩu</h4>
+            <p className="text-muted small">Cấp lại mật khẩu qua mã xác thực OTP</p>
+          </div>
 
           <div className="card shadow-sm border-0">
             <div className="card-body p-4">
-              {/* BƯỚC 1: nhập email */}
+              <div className="small text-muted mb-3 fw-semibold">
+                Bước {step}/3: {step === 1 ? "Nhập email" : step === 2 ? "Xác thực OTP" : "Mật khẩu mới"}
+              </div>
+
+              {info && <div className="alert alert-info py-2 small">{info}</div>}
+              {error && <div className="alert alert-danger py-2 small">{error}</div>}
+
+              {/* Bước 1 */}
               {step === 1 && (
                 <form onSubmit={handleEmailSubmit}>
-                  <p className="text-muted small">
-                    Nhập email của tài khoản, hệ thống sẽ gửi mã OTP để bạn đặt lại mật khẩu.
-                  </p>
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">Email</label>
+                    <label className="form-label">Email tài khoản</label>
                     <input
                       type="email"
                       className="form-control"
-                      placeholder="email@gmail.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      placeholder="tan@example.com"
                       autoFocus
+                      required
                     />
                   </div>
-                  {error && <div className="alert alert-danger py-2">{error}</div>}
                   <button
-                    className="btn btn-primary w-100 fw-semibold"
+                    className="btn btn-primary w-100 py-2"
                     type="submit"
                     disabled={loading || !email.trim()}
                   >
@@ -141,40 +147,33 @@ const ForgotPasswordPage: React.FC = () => {
                 </form>
               )}
 
-              {/* BƯỚC 2: nhập OTP */}
+              {/* Bước 2 */}
               {step === 2 && (
                 <form onSubmit={handleVerify}>
-                  {info && <div className="alert alert-info py-2 small">{info}</div>}
-                  <div className="mb-2">
-                    <label className="form-label fw-semibold">Mã OTP (6 chữ số)</label>
+                  <p className="small text-muted mb-2">
+                    Mã OTP đã gửi tới <strong>{email}</strong>
+                  </p>
+                  <div className="mb-3">
                     <input
-                      className="form-control form-control-lg text-center"
-                      style={{ letterSpacing: "0.5em" }}
+                      className="form-control text-center otp-input-clean"
                       inputMode="numeric"
                       maxLength={6}
                       placeholder="------"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                       autoFocus
+                      required
                     />
                   </div>
-                  <div className="text-center mb-3">
+                  <div className="small text-muted text-center mb-3">
                     {expiresLeft > 0 ? (
-                      <span className="text-muted small">
-                        OTP hết hạn sau{" "}
-                        <strong className="text-danger">
-                          {mm}:{ss}
-                        </strong>
-                      </span>
+                      <span>Hết hạn sau: <strong className="text-danger">{mm}:{ss}</strong></span>
                     ) : (
-                      <span className="text-danger small fw-semibold">
-                        OTP đã hết hạn, vui lòng gửi lại mã.
-                      </span>
+                      <span className="text-danger">Mã OTP đã hết hạn</span>
                     )}
                   </div>
-                  {error && <div className="alert alert-danger py-2">{error}</div>}
                   <button
-                    className="btn btn-primary w-100 fw-semibold mb-2"
+                    className="btn btn-primary w-100 py-2 mb-2"
                     type="submit"
                     disabled={loading || otp.length !== 6 || expiresLeft === 0}
                   >
@@ -182,58 +181,57 @@ const ForgotPasswordPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-outline-secondary w-100"
+                    className="btn btn-link btn-sm w-100 text-decoration-none"
                     onClick={sendOtp}
                     disabled={loading || resendLeft > 0}
                   >
-                    {resendLeft > 0 ? `Gửi lại OTP (${resendLeft}s)` : "Gửi lại OTP"}
+                    {resendLeft > 0 ? `Gửi lại mã sau ${resendLeft}s` : "Gửi lại mã OTP"}
                   </button>
                 </form>
               )}
 
-              {/* BƯỚC 3: mật khẩu mới */}
+              {/* Bước 3 */}
               {step === 3 && (
                 <form onSubmit={handleReset}>
-                  <div className="alert alert-success py-2 small">
-                    Xác thực thành công. Hãy đặt mật khẩu mới.
-                  </div>
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">Mật khẩu mới</label>
+                    <label className="form-label">Mật khẩu mới</label>
                     <input
                       type="password"
                       className="form-control"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Tối thiểu 6 ký tự"
                       autoFocus
+                      required
                     />
-                    <div className="form-text">Tối thiểu 6 ký tự.</div>
                   </div>
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">Nhập lại mật khẩu mới</label>
+                    <label className="form-label">Xác nhận mật khẩu mới</label>
                     <input
                       type="password"
                       className="form-control"
                       value={confirm}
                       onChange={(e) => setConfirm(e.target.value)}
+                      placeholder="Nhập lại mật khẩu mới"
+                      required
                     />
                   </div>
-                  {error && <div className="alert alert-danger py-2">{error}</div>}
                   <button
-                    className="btn btn-primary w-100 fw-semibold"
+                    className="btn btn-success w-100 py-2"
                     type="submit"
                     disabled={loading || !newPassword || !confirm}
                   >
-                    {loading ? "Đang lưu..." : "Đặt lại mật khẩu"}
+                    {loading ? "Đang cập nhật..." : "Đổi mật khẩu"}
                   </button>
                 </form>
               )}
-            </div>
-          </div>
 
-          <div className="text-center mt-3">
-            <Link to="/login" className="small">
-              ← Quay lại đăng nhập
-            </Link>
+              <div className="text-center mt-3 pt-2 border-top">
+                <Link to="/login" className="small text-decoration-none">
+                  &larr; Quay lại đăng nhập
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>

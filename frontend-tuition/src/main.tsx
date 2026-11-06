@@ -7,6 +7,7 @@ import LoginPage from "./page/LoginPage.tsx";
 import ForgotPasswordPage from "./page/ForgotPasswordPage.tsx";
 import HistoryPage from "./page/HistoryPage.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
+import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
   <BrowserRouter>

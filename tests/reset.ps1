@@ -1,3 +1,3 @@
-docker exec -i ibanking_postgres psql -U postgres -d account_db -c "UPDATE users SET balance = CASE username WHEN 'tan' THEN 20000000 WHEN 'thai' THEN 5000000 WHEN 'nam' THEN 25000000 WHEN 'lan' THEN 18000000 ELSE 30000000 END;"
+docker exec -i ibanking_postgres psql -U postgres -d account_db -c "UPDATE users SET balance = CASE id WHEN 1 THEN 20000000 WHEN 2 THEN 5000000 WHEN 3 THEN 30000000 WHEN 4 THEN 25000000 WHEN 5 THEN 18000000 END;"
 docker exec -i ibanking_postgres psql -U postgres -d tuition_db -c "UPDATE tuition_fees SET status='PENDING', version=1 WHERE mssv IN ('524H0028','524H0029','524H0031');"
 docker exec -i ibanking_postgres psql -U postgres -d payment_db -c "TRUNCATE otp_codes, transactions RESTART IDENTITY;"

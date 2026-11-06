@@ -1,0 +1,252 @@
+/* ========================================================
+   iBanking Modern Professional Banking Theme
+   Clean, Polished, Trustworthy & Elegant
+   ======================================================== */
+
+:root {
+  --primary-color: #1e40af;
+  --primary-hover: #1d4ed8;
+  --primary-subtle: #eff6ff;
+  --text-dark: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --bg-page: #f8fafc;
+  --card-bg: #ffffff;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-dark);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Polished Top Navbar */
+.banking-navbar {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+}
+
+.banking-brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--primary-color);
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-decoration: none !important;
+}
+
+.brand-icon {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  color: #ffffff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.brand-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e40af;
+  line-height: 1.2;
+  display: block;
+}
+
+.brand-subtitle {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 400;
+  line-height: 1.2;
+  display: block;
+  margin-top: 2px;
+}
+
+/* Elegant Cards */
+.banking-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
+  transition: all 0.2s ease;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.banking-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+}
+
+.banking-card-header {
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.banking-card-body {
+  padding: 1.25rem;
+}
+
+/* User Account Quick Banner */
+.user-info-banner {
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Clean Form Controls */
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 0.35rem;
+}
+
+.banking-input {
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.925rem;
+  color: #1e293b;
+  background-color: #ffffff;
+  transition: all 0.15s ease-in-out;
+}
+
+.banking-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  background-color: #ffffff;
+}
+
+.banking-input[readonly] {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  color: #334155;
+  font-weight: 500;
+}
+
+/* Quick Search Chip Buttons */
+.chip-btn {
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #475569;
+  transition: all 0.15s;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.chip-btn:hover {
+  background-color: #e0e7ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
+/* Tuition Detail Display */
+.tuition-result-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+}
+
+/* Status Badges */
+.badge-paid {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  font-weight: 600;
+  padding: 0.35em 0.7em;
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.badge-pending {
+  background-color: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fef08a;
+  font-weight: 600;
+  padding: 0.35em 0.7em;
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+/* Buttons */
+.btn-banking-primary {
+  background-color: #1e40af;
+  color: #ffffff;
+  border: 1px solid #1e40af;
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 0.6rem 1.25rem;
+  transition: all 0.15s;
+}
+
+.btn-banking-primary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.btn-banking-success {
+  background-color: #16a34a;
+  color: #ffffff;
+  border: 1px solid #16a34a;
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 0.7rem 1.5rem;
+  transition: all 0.15s;
+}
+
+.btn-banking-success:hover:not(:disabled) {
+  background-color: #15803d;
+  border-color: #15803d;
+  color: #ffffff;
+}
+
+/* OTP Input */
+.otp-box-clean {
+  letter-spacing: 0.4em;
+  font-size: 1.75rem;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 8px;
+  border: 2px solid #cbd5e1;
+  color: #1e40af;
+  background-color: #f8fafc;
+}
+
+.otp-box-clean:focus {
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}

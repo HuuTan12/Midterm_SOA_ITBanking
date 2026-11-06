@@ -8,6 +8,9 @@ Quy ước: lỗi trả về dạng `{"detail": "<thông báo>"}`. Endpoint `/in
 |---|---|---|---|---|
 | POST | /auth/login | `{"username","password"}` | 200 `{"access_token","token_type":"bearer"}` | 401 sai tài khoản/mật khẩu, 422 thiếu trường |
 | GET | /users/me | Bearer token | 200 `{"id","username","full_name","phone","email","balance"}` | 401 token thiếu/sai/hết hạn |
+| POST | /auth/forgot-password | `{"email"}` | 200 `{"message","expires_in_seconds"}` | 422 |
+| POST | /auth/verify-reset-otp | `{"email","otp"}` | 200 `{"reset_token","expires_in_seconds"}` | 400 OTP sai, 410 hết hạn, 429 quá số lần |
+| POST | /auth/reset-password | `{"reset_token","new_password"}` | 200 `{"message"}` | 400 token sai hoặc hết hạn, 422 |
 | POST | /internal/accounts/{user_id}/debit | `X-Internal-Key` + `{"amount"}` | 200 `{"balance"}` (số dư mới) | 402 số dư không đủ, 403 sai key, 422 |
 | POST | /internal/accounts/{user_id}/credit | `X-Internal-Key` + `{"amount"}` | 200 `{"balance"}` | 403, 404 không có user, 422 |
 
@@ -34,3 +37,4 @@ Trạng thái giao dịch: `PENDING_OTP`, `SUCCESS`, `FAILED`, `EXPIRED`.
 | Method | URI | Request | Response thành công | Mã lỗi |
 |---|---|---|---|---|
 | POST | /internal/notify/email | `X-Internal-Key` + `{"to","subject","body"}` | 200 `{"sent":true,"mode":"smtp"|"console"}` | 403, 422, 502 SMTP lỗi |
+| POST | /internal/notify/payment-success | `X-Internal-Key` + `{"to","payer_name","student_name","mssv","amount","transaction_id"}` | 200 `{"sent":true,"mode":"smtp"|"console"}` | 403, 422, 502 SMTP lỗi |
