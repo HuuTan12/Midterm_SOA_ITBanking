@@ -26,6 +26,12 @@ INSERT INTO users (username, password_hash, full_name, phone, email, balance) VA
 ('mai',  crypt('123456', gen_salt('bf', 10)), 'Hoang Thi Mai',   '0906666666', 'mai@example.com',   8000000);
 
 -- OTP đặt lại mật khẩu (quên mật khẩu)
+('Nguyễn Hữu Tân', crypt('123456', gen_salt('bf', 10)), 'Nguyễn Hữu Tân',  '0901111111', 'tan@example.com',  20000000),
+('Trần Minh Thái', crypt('123456', gen_salt('bf', 10)), 'Trần Minh Thái',  '0902222222', 'thai@example.com',  5000000),
+('Lê Quốc Việt',   crypt('123456', gen_salt('bf', 10)), 'Lê Quốc Việt',    '0903333333', 'viet@example.com', 30000000),
+('Nguyễn Văn Nam', crypt('123456', gen_salt('bf', 10)), 'Nguyễn Văn Nam',  '0904444444', 'nam@example.com',  25000000),
+('Phạm Thị Lan',   crypt('123456', gen_salt('bf', 10)), 'Phạm Thị Lan',    '0905555555', 'lan@example.com',  18000000);
+
 CREATE TABLE password_reset_otps (
     id          SERIAL PRIMARY KEY,
     user_id     INT         NOT NULL REFERENCES users(id),
@@ -115,4 +121,5 @@ CREATE TABLE otp_codes (
 );
 
 -- OTP đang hiệu lực không được trùng nhau giữa các giao dịch
+CREATE UNIQUE INDEX uq_otp_active_code ON otp_codes(code_hash) WHERE used = FALSE;
 CREATE UNIQUE INDEX uq_otp_active_code ON otp_codes(code_hash) WHERE used = FALSE;

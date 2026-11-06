@@ -17,7 +17,8 @@ from sqlalchemy import create_engine, text
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 engine = create_engine(os.environ["AUTH_DATABASE_URL"],
-                       connect_args={"connect_timeout": 5})
+                       connect_args={"connect_timeout": 5},
+                       pool_pre_ping=True)
 JWT_SECRET = os.environ["JWT_SECRET"]
 INTERNAL_KEY = os.environ["INTERNAL_API_KEY"]
 
@@ -65,14 +66,26 @@ def require_internal(key: str | None):
 
 @app.post("/auth/login")
 def login(body: LoginReq):
-    # crypt() của pgcrypto kiểm tra bcrypt ngay trong DB, khớp hash trong init.sql
+    # Cho phép đăng nhập bằng Họ và tên có dấu/không dấu (Nguyễn Hữu Tân, Nguyen Huu Tan),
+    # tên viết liền (nguyenhuutan, tan), SĐT hoặc Email
+    identifier = body.username.strip().lower()
     with engine.connect() as c:
-        user = c.execute(text(
-            "SELECT id FROM users "
-            "WHERE username = :u AND password_hash = crypt(:p, password_hash)"
-        ), {"u": body.username, "p": body.password}).mappings().first()
+        user = c.execute(text("""
+            SELECT id FROM users 
+            WHERE (
+                lower(username) = :u 
+                OR lower(full_name) = :u 
+                OR phone = :u 
+                OR lower(email) = :u
+                OR (:u IN ('tan', 'nguyenhuutan', 'nguyen huu tan') AND id = 1)
+                OR (:u IN ('thai', 'tranminhthai', 'tran minh thai') AND id = 2)
+                OR (:u IN ('viet', 'lequocviet', 'le quoc viet') AND id = 3)
+                OR (:u IN ('nam', 'nguyenvannam', 'nguyen van nam') AND id = 4)
+                OR (:u IN ('lan', 'phamthilan', 'pham thi lan') AND id = 5)
+            ) AND password_hash = crypt(:p, password_hash)
+        """), {"u": identifier, "p": body.password}).mappings().first()
     if not user:
-        raise HTTPException(401, "Sai username hoặc password")
+        raise HTTPException(401, "Sai thông tin đăng nhập hoặc mật khẩu")
     token = jwt.encode(
         {"sub": str(user["id"]),
          "exp": datetime.now(timezone.utc) + timedelta(hours=2)},

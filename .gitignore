@@ -9,6 +9,9 @@ venv/
 .env.*
 !.env.example
 
+# Legacy
+frontend/
+
 # Node
 node_modules/
 dist/
