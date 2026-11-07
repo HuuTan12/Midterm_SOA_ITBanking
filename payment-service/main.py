@@ -50,6 +50,31 @@ def finish(conn, tx_id, status, reason, http_code):
         {"s": status, "r": reason, "id": tx_id})
     return JSONResponse(status_code=http_code, content={"detail": reason})
 
+def expire_stale(conn, uid: int) -> None:
+    """Đánh dấu EXPIRED các giao dịch PENDING_OTP của user mà không còn OTP nào hiệu lực.
+    Khóa dòng (FOR UPDATE) trước rồi mới kiểm tra OTP, để không đè lên resend/verify đang chạy."""
+    ids = conn.execute(text(
+        "SELECT id FROM transactions WHERE user_id=:u AND status='PENDING_OTP' FOR UPDATE"),
+        {"u": uid}).scalars().all()
+    for tx_id in ids:
+        alive = conn.execute(text(
+            "SELECT 1 FROM otp_codes WHERE transaction_id=:id AND used=FALSE "
+            "AND expires_at > CURRENT_TIMESTAMP LIMIT 1"), {"id": tx_id}).first()
+        if not alive:
+            conn.execute(text(
+                "UPDATE transactions SET status='EXPIRED', fail_reason='OTP đã hết hạn', "
+                "updated_at=now() WHERE id=:id"), {"id": tx_id})
+
+def active_pending(conn, uid: int):
+    """Giao dịch đang chờ OTP (còn hiệu lực) của user, kèm số giây còn lại tính theo giờ DB."""
+    return conn.execute(text(
+        "SELECT t.id AS transaction_id, t.mssv, t.amount, "
+        "CEIL(EXTRACT(EPOCH FROM (o.expires_at - LOCALTIMESTAMP)))::int AS expires_in_seconds "
+        "FROM transactions t "
+        "JOIN otp_codes o ON o.transaction_id = t.id AND o.used = FALSE "
+        "AND o.expires_at > CURRENT_TIMESTAMP "
+        "WHERE t.user_id=:u AND t.status='PENDING_OTP' "
+        "ORDER BY t.id DESC, o.id DESC LIMIT 1"), {"u": uid}).mappings().first()
 
 def notify(to: str, subject: str, body: str) -> bool:
     try:
@@ -96,6 +121,19 @@ def create_payment(body: CreatePaymentReq, authorization: str | None = Header(No
         code_hash = otp_hash(otp)
         try:
             with engine.begin() as conn:
+                # Mỗi tài khoản chỉ có 1 giao dịch đang chờ OTP. Advisory lock theo user
+                # để hai request tạo giao dịch cùng lúc không cùng lọt qua bước kiểm tra.
+                if os.getenv("DEBUG_ALLOW_MULTI_PENDING") != "1":
+                    conn.execute(text("SELECT pg_advisory_xact_lock(:u)"), {"u": uid})
+                    expire_stale(conn, uid)
+                    cur = active_pending(conn, uid)
+                    if cur:
+                        return JSONResponse(status_code=409, content={
+                            "detail": f"Bạn đang có giao dịch #{cur['transaction_id']} "
+                                      f"(MSSV {cur['mssv']}) chưa hoàn tất. "
+                                      "Hãy tiếp tục thanh toán hoặc hủy giao dịch đó trước.",
+                            "transaction_id": cur["transaction_id"]})
+
                 tx_id = conn.execute(text(
                     "INSERT INTO transactions (user_id, mssv, tuition_id, tuition_version, amount) "
                     "VALUES (:u, :m, :t, :v, :a) RETURNING id"),
@@ -260,11 +298,41 @@ def resend_otp(tx_id: int, authorization: str | None = Header(None)):
         raise HTTPException(502, "Không gửi được email OTP")
     return {"expires_in_seconds": 300}
 
+@app.get("/payments/pending")
+def get_pending(authorization: str | None = Header(None)):
+    """Giao dịch đang chờ OTP của user (hoặc null)."""
+    uid = user_id_from(authorization)
+    with engine.begin() as conn:
+        expire_stale(conn, uid)
+        row = active_pending(conn, uid)
+    return dict(row) if row else None
+
+
+@app.post("/payments/{tx_id}/cancel")
+def cancel_payment(tx_id: int, authorization: str | None = Header(None)):
+    uid = user_id_from(authorization)
+    with engine.begin() as conn:
+        tx = conn.execute(text(
+            "SELECT status FROM transactions WHERE id=:id AND user_id=:u FOR UPDATE"),
+            {"id": tx_id, "u": uid}).mappings().first()
+        if not tx:
+            raise HTTPException(404, "Không tìm thấy giao dịch")
+        if tx["status"] != "PENDING_OTP":
+            raise HTTPException(409, "Giao dịch không còn chờ OTP")
+        conn.execute(text(
+            "UPDATE otp_codes SET used = TRUE WHERE transaction_id=:id AND used = FALSE"),
+            {"id": tx_id})
+        conn.execute(text(
+            "UPDATE transactions SET status='FAILED', fail_reason='Người dùng đã hủy giao dịch', "
+            "updated_at=now() WHERE id=:id"), {"id": tx_id})
+    return {"cancelled": True}
+
 
 @app.get("/users/me/transactions")
 def my_transactions(authorization: str | None = Header(None)):
     uid = user_id_from(authorization)
-    with engine.connect() as conn:
+    with engine.begin() as conn:     # begin() để commit việc đóng giao dịch hết hạn
+        expire_stale(conn, uid)
         rows = conn.execute(text(
             "SELECT id, mssv, amount, status, fail_reason, created_at "
             "FROM transactions WHERE user_id=:u ORDER BY created_at DESC"),

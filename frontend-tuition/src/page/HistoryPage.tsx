@@ -145,7 +145,14 @@ const HistoryPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="pe-4 small text-muted">
-                          {t.fail_reason ? (
+                          {t.status === "PENDING_OTP" ? (
+                            <button
+                              className="btn btn-sm btn-banking-primary rounded-pill px-3"
+                              onClick={() => navigate("/?resume=1")}
+                            >
+                              <i className="bi bi-play-circle me-1"></i>Tiếp tục thanh toán
+                            </button>
+                          ) : t.fail_reason ? (
                             <span className="text-danger">{t.fail_reason}</span>
                           ) : t.status === "SUCCESS" ? (
                             <span className="text-success">

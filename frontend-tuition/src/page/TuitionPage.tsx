@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { AppDispatch, RootState } from "../redux/store";
 import { fetchTuition } from "../redux/reducer/tuitionReducer";
 import { authServices } from "../services/authServices.ts";
@@ -24,6 +24,13 @@ interface Result {
   mssv?: string;
 }
 
+interface PendingTx {
+  id: number;
+  mssv: string;
+  amount: number;
+  expiresAt: number; // mốc thời gian (ms) OTP hết hạn
+}
+
 const OTP_SECONDS = 300;
 const money = (n: number) => n.toLocaleString("vi-VN") + " đ";
 const errMsg = (err: any, fallback: string) => {
@@ -43,10 +50,11 @@ const TuitionPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [otpOpen, setOtpOpen] = useState(false);
-  const [txId, setTxId] = useState<number | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [pending, setPending] = useState<PendingTx | null>(null);
+  const [, setTick] = useState(0); // chỉ để render lại mỗi giây
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
 
   const loadMe = () =>
@@ -57,11 +65,70 @@ const TuitionPage: React.FC = () => {
   }, []);
 
   // Đếm ngược thời hạn hiệu lực của mã OTP
+    // Số giây còn lại tính từ mốc hết hạn, nên đồng hồ vẫn chạy khi modal đóng
+  const secondsLeft = pending
+    ? Math.max(0, Math.ceil((pending.expiresAt - Date.now()) / 1000))
+    : 0;
+
+  const toPending = (d: any): PendingTx => ({
+    id: d.transaction_id,
+    mssv: d.mssv,
+    amount: d.amount,
+    expiresAt: Date.now() + d.expires_in_seconds * 1000,
+  });
+
+  // Hỏi server xem có giao dịch đang treo không
+  const loadPending = async (resume = false) => {
+    try {
+      const r = await paymentServices.pending();
+      if (r.data) {
+        setPending(toPending(r.data));
+        if (resume) {
+          setOtpError(null);
+          setOtpOpen(true); // mở lại cửa sổ OTP cũ, mã OTP cũ vẫn dùng được
+        }
+      } else {
+        setPending(null);
+        setOtpOpen(false);
+        if (resume) {
+          setResult({ ok: false, message: "Giao dịch đã hết hạn hoặc đã được xử lý. Vui lòng tạo giao dịch mới." });
+        }
+      }
+    } catch {
+      /* lỗi mạng: giữ nguyên trạng thái */
+    }
+  };
+
   useEffect(() => {
-    if (!otpOpen) return undefined;
-    const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    loadMe();
+    const resume = searchParams.get("resume") === "1";
+    loadPending(resume);
+    if (resume) setSearchParams({}, { replace: true });
+  }, []);
+
+  // Có giao dịch treo thì render lại mỗi giây để đồng hồ chạy
+  useEffect(() => {
+    if (!pending) return undefined;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [otpOpen]);
+  }, [pending]);
+
+  // Hết giờ: hỏi lại server, nó sẽ đóng giao dịch (EXPIRED) và trả null
+  useEffect(() => {
+    if (!pending || secondsLeft > 0) return;
+    setOtpOpen(false);
+    const id = pending.id;
+    paymentServices
+      .pending()
+      .then((r) => {
+        if (r.data) setPending(toPending(r.data));
+        else {
+          setPending(null);
+          setResult({ ok: false, message: `Giao dịch #${id} đã hết hạn OTP. Vui lòng tạo giao dịch mới.`, txId: id });
+        }
+      })
+      .catch(() => {});
+  }, [secondsLeft, pending]);
 
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
@@ -85,21 +152,28 @@ const TuitionPage: React.FC = () => {
     me.balance >= data.amount &&
     agreed &&
     !submitting;
+    !!data && data.tuition_id != null && data.status === "PENDING" &&
+    !!me && me.balance >= data.amount && agreed && !submitting && !pending;
 
   // Bước 1: Khởi tạo giao dịch thanh toán
-  const handleConfirm = async () => {
+    const handleConfirm = async () => {
     if (!data) return;
     setSubmitting(true);
     setFormError(null);
     try {
       const res = await paymentServices.create(data.mssv);
-      setTxId(res.data.transaction_id);
+      setPending({
+        id: res.data.transaction_id,
+        mssv: data.mssv,
+        amount: data.amount,
+        expiresAt: Date.now() + (res.data.expires_in_seconds ?? OTP_SECONDS) * 1000,
+      });
       setOtp("");
       setOtpError(null);
-      setSecondsLeft(res.data.expires_in_seconds ?? OTP_SECONDS);
       setOtpOpen(true);
     } catch (err: any) {
       setFormError(errMsg(err, "Không tạo được giao dịch thanh toán"));
+      if (err?.response?.status === 409) loadPending(); // đồng bộ lại banner
     } finally {
       setSubmitting(false);
     }
@@ -107,30 +181,29 @@ const TuitionPage: React.FC = () => {
 
   // Bước 2: Xác thực OTP và chốt giao dịch
   const handleVerify = async () => {
-    if (txId == null || !data) return;
+    if (!pending) return;
+    const tx = pending; // dùng số liệu của giao dịch, không dùng `data` (có thể đang tra MSSV khác)
     setSubmitting(true);
     setOtpError(null);
     try {
-      await paymentServices.verifyOtp(txId, otp);
+      await paymentServices.verifyOtp(tx.id, otp);
       setOtpOpen(false);
-      setResult({
-        ok: true,
-        message: "Thanh toán học phí thành công!",
-        txId,
-        amount: data.amount,
-        mssv: data.mssv,
-      });
+      setPending(null);
+      setOtp("");
+      setResult({ ok: true, message: "Thanh toán học phí thành công!", txId: tx.id, amount: tx.amount, mssv: tx.mssv });
       loadMe();
-      dispatch(fetchTuition(data.mssv));
+      if (data?.mssv === tx.mssv) dispatch(fetchTuition(tx.mssv));
     } catch (err: any) {
       const msg = errMsg(err, "Xác thực OTP thất bại");
       if (err.response?.status === 400) {
         setOtpError(msg);
       } else {
         setOtpOpen(false);
-        setResult({ ok: false, message: msg, txId });
+        setOtp("");
+        setResult({ ok: false, message: msg, txId: tx.id });
         loadMe();
-        dispatch(fetchTuition(data.mssv));
+        loadPending(); // server đã đóng giao dịch -> banner biến mất
+        if (data?.mssv === tx.mssv) dispatch(fetchTuition(tx.mssv));
       }
     } finally {
       setSubmitting(false);
@@ -138,15 +211,33 @@ const TuitionPage: React.FC = () => {
   };
 
   const handleResend = async () => {
-    if (txId == null) return;
+    if (!pending) return;
     setSubmitting(true);
     setOtpError(null);
     try {
-      const res = await paymentServices.resendOtp(txId);
+      const res = await paymentServices.resendOtp(pending.id);
       setOtp("");
-      setSecondsLeft(res.data.expires_in_seconds ?? OTP_SECONDS);
+      setPending({ ...pending, expiresAt: Date.now() + (res.data.expires_in_seconds ?? OTP_SECONDS) * 1000 });
     } catch (err: any) {
       setOtpError(errMsg(err, "Không gửi lại được mã OTP"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!pending) return;
+    if (!window.confirm(`Hủy giao dịch #${pending.id}?`)) return;
+    setSubmitting(true);
+    try {
+      await paymentServices.cancel(pending.id);
+      setOtpOpen(false);
+      setPending(null);
+      setOtp("");
+      setOtpError(null);
+    } catch (err: any) {
+      setOtpError(errMsg(err, "Không hủy được giao dịch"));
+      loadPending();
     } finally {
       setSubmitting(false);
     }
@@ -198,6 +289,35 @@ const TuitionPage: React.FC = () => {
       <main className="container py-4">
         <div className="row justify-content-center">
           <div className="col-12 col-lg-8">
+                        {pending && !otpOpen && (
+              <div className="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+                <div>
+                  <i className="bi bi-hourglass-split me-2"></i>
+                  Đang có giao dịch <strong>#{pending.id}</strong> đóng học phí MSSV{" "}
+                  <strong>{pending.mssv}</strong> ({money(pending.amount)}) chờ xác thực OTP.
+                  Còn <strong>{mm}:{ss}</strong>.
+                  <div className="small">
+                    Hãy hoàn tất hoặc hủy giao dịch này trước khi thanh toán cho tài khoản khác.
+                  </div>
+                  {otpError && <div className="text-danger small mt-1">{otpError}</div>}
+                </div>
+                <div className="d-flex gap-2">
+                  <button
+                    className="btn btn-sm btn-primary rounded-pill px-3"
+                    onClick={() => { setOtpError(null); setOtpOpen(true); }}
+                  >
+                    Tiếp tục thanh toán
+                  </button>
+                  <button
+                    className="btn btn-sm btn-outline-danger rounded-pill px-3"
+                    onClick={handleCancel}
+                    disabled={submitting}
+                  >
+                    Hủy giao dịch
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Kết quả giao dịch sau khi nộp */}
             {result && (
               <div className={`banking-card border-${result.ok ? "success" : "danger"} mb-4`}>
@@ -438,7 +558,7 @@ const TuitionPage: React.FC = () => {
       </main>
 
       {/* Modal xác thực OTP giao dịch */}
-      {otpOpen && (
+      {otpOpen && pending && (
         <>
           <div className="modal-backdrop fade show" style={{ backgroundColor: "rgba(15, 23, 42, 0.5)" }}></div>
           <div className="modal fade show d-block" tabIndex={-1}>
@@ -464,6 +584,9 @@ const TuitionPage: React.FC = () => {
                     Mã xác thực gồm <strong>6 chữ số</strong> đã được gửi tới email:
                   </p>
                   <div className="fw-semibold text-primary mb-3">{me?.email}</div>
+                    <div className="small text-muted mb-2">
+                      Giao dịch #{pending.id} · MSSV {pending.mssv} · {money(pending.amount)}
+                    </div>
 
                   <div className="my-3">
                     <input
@@ -500,13 +623,13 @@ const TuitionPage: React.FC = () => {
                 </div>
 
                 <div className="modal-footer border-top bg-light py-2 px-3 d-flex justify-content-between">
-                  <button
-                    className="btn btn-outline-secondary btn-sm rounded-pill px-3"
-                    onClick={() => setOtpOpen(false)}
-                    disabled={submitting}
-                  >
-                    Hủy bỏ
-                  </button>
+                    <button
+                      className="btn btn-outline-danger btn-sm rounded-pill px-3"
+                        onClick={handleCancel}
+                        disabled={submitting}
+                      >
+                        Hủy giao dịch
+                    </button>
                   <div className="d-flex gap-2">
                     <button
                       className="btn btn-outline-primary btn-sm rounded-pill px-3"
